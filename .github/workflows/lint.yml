@@ -1,0 +1,35 @@
+name: Lint
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    strategy:
+      matrix:
+        module: [ '' ]
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache-dependency-path: "**/go.sum"
+      - name: Lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          working-directory: ${{ matrix.module }}
+  all:
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    name: All Lints
+    needs: lint
+    steps:
+      - name: Check lint matrix status
+        if: ${{ needs.lint.result != 'success' }}
+        run: exit 1
