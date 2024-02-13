@@ -1,0 +1,20 @@
+name: API Diff
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  apidiff:
+    name: API Diff
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache-dependency-path: "**/go.sum"
+      - uses: joelanford/go-apidiff@v0.8.2
