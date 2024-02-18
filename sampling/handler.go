@@ -39,7 +39,7 @@ type Handler struct {
 }
 
 // New creates a new Handler with the given Option(s).
-func New(handler slog.Handler, sampler func(ctx context.Context) bool, opts ...Option) *Handler {
+func New(handler slog.Handler, sampler func(ctx context.Context) bool, opts ...Option) Handler {
 	if handler == nil {
 		panic("cannot create Handler with nil handler")
 	}
@@ -66,7 +66,7 @@ func New(handler slog.Handler, sampler func(ctx context.Context) bool, opts ...O
 		},
 	}
 
-	return &option.Handler
+	return option.Handler
 }
 
 func (h Handler) Enabled(ctx context.Context, level slog.Level) bool {
