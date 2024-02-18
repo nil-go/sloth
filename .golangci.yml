@@ -130,7 +130,7 @@ linters:
     - varnamelen
     - wastedassign
     - whitespace
-    - wrapcheck
+    # wrapcheck
     # wsl
     - zerologlint
 
