@@ -10,3 +10,4 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Add sampling handler for sampling records at request level (#3).
+- Add handler to emit JSON logs to GCP Cloud Logging (#6).

@@ -1,4 +1,4 @@
-# :water_buffalo: An opinionated minimalist Go application framework
+# Opinionated Go slog handlers
 
 ![Go Version](https://img.shields.io/github/go-mod/go-version/nil-go/sloth)
 [![Go Reference](https://pkg.go.dev/badge/github.com/nil-go/sloth.svg)](https://pkg.go.dev/github.com/nil-go/sloth)
@@ -9,3 +9,4 @@
 Sloth provides opinionated slog handlers for major Cloud providers. It providers following slog handlers:
 
 - [`sampling`](sampling) provides a slog handler for sampling records at request level.
+- [`gcp`](gcp) provides a slog handler for emitting JSON logs to GCP Cloud Logging.
