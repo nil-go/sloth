@@ -35,8 +35,9 @@ type Handler struct {
 	level slog.Level
 
 	bufferPool *sync.Pool
-	contextKey struct{}
 }
+
+type contextKey struct{}
 
 // New creates a new Handler with the given Option(s).
 func New(handler slog.Handler, sampler func(ctx context.Context) bool, opts ...Option) Handler {
@@ -76,7 +77,7 @@ func (h Handler) Enabled(ctx context.Context, level slog.Level) bool {
 
 	// If the log has not been sampled and there is no buffer in context,
 	// then it only logs while the level is greater than or equal to the handler level.
-	if ctx.Value(h.contextKey) == nil && !h.sampler(ctx) {
+	if ctx.Value(contextKey{}) == nil && !h.sampler(ctx) {
 		return level >= h.level
 	}
 
@@ -90,7 +91,7 @@ func (h Handler) Handle(ctx context.Context, record slog.Record) error {
 
 	// If there is buffer in context and the log has not been sampled,
 	// then the record is handled by the buffer.
-	if b, ok := ctx.Value(h.contextKey).(*buffer); ok {
+	if b, ok := ctx.Value(contextKey{}).(*buffer); ok {
 		if record.Level < h.level {
 			return b.buffer(ctx, h.handler, record)
 		}
@@ -123,7 +124,7 @@ func (h Handler) WithGroup(name string) slog.Handler {
 //	defer cancel()
 func (h Handler) WithBuffer(ctx context.Context) (context.Context, func()) {
 	buf := h.bufferPool.Get().(*buffer) //nolint:forcetypeassert,errcheck
-	ctx = context.WithValue(ctx, h.contextKey, buf)
+	ctx = context.WithValue(ctx, contextKey{}, buf)
 
 	return ctx, func() {
 		buf.reset()
