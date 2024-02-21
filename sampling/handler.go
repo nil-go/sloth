@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT license found in the LICENSE file.
 
 /*
-package sampling provides a handler for sampling records at request level.
+Package sampling provides a handler for sampling records at request level.
 
 It discards records with lower than the minimum level if request is unsampled. For example,
 if the minimum level is slog.LevelError, it logs records with slog.LevelError and above regardless,
