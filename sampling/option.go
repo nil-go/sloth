@@ -8,7 +8,7 @@ import "log/slog"
 // WithLevel provides the minimum record level that will be logged without sampling.
 // It discards unsampled records with lower level unless the buffer is activated by Handler.WithBuffer.
 //
-// If the level is not specified, the handler assumes slog.LevelError.
+// The default minimum record level is  slog.LevelError.
 func WithLevel(level slog.Level) Option {
 	return func(options *options) {
 		options.level = level
@@ -23,7 +23,7 @@ func WithLevel(level slog.Level) Option {
 func WithBufferSize(size uint) Option {
 	return func(options *options) {
 		if size > 0 {
-			options.bufferSize = int(size)
+			options.bufferSize = size
 		}
 	}
 }
@@ -34,6 +34,6 @@ type (
 	options struct {
 		Handler
 
-		bufferSize int
+		bufferSize uint
 	}
 )
