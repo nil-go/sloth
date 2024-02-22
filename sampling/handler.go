@@ -58,7 +58,7 @@ func New(handler slog.Handler, sampler func(ctx context.Context) bool, opts ...O
 	for _, opt := range opts {
 		opt(option)
 	}
-	if option.bufferSize < 0 {
+	if option.bufferSize == 0 {
 		option.bufferSize = 10
 	}
 	option.bufferPool = &sync.Pool{
