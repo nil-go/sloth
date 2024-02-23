@@ -46,7 +46,7 @@ func New(opts ...Option) slog.Handler {
 		&slog.HandlerOptions{
 			AddSource:   true,
 			Level:       option.level,
-			ReplaceAttr: replaceAttr(),
+			ReplaceAttr: replaceAttr,
 		},
 	)
 	if option.project != "" || option.service != "" {
@@ -60,63 +60,60 @@ func New(opts ...Option) slog.Handler {
 	return handler
 }
 
-func replaceAttr() func([]string, slog.Attr) slog.Attr {
+func replaceAttr(groups []string, attr slog.Attr) slog.Attr { //nolint:cyclop
+	if len(groups) > 0 {
+		return attr
+	}
+
 	// Replace attributes to match GCP Cloud Logging format.
 	//
 	// See: https://cloud.google.com/logging/docs/agent/logging/configuration#special-fields
-	replacer := map[string]func(slog.Attr) slog.Attr{
-		// Maps the slog levels to the correct [severity] for GCP Cloud Logging.
-		//
-		// See: https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
-		slog.LevelKey: func(attr slog.Attr) slog.Attr {
-			var severity string
-			if level, ok := attr.Value.Any().(slog.Level); ok {
-				switch {
-				case level >= slog.LevelError:
-					severity = "ERROR"
-				case level >= slog.LevelWarn:
-					severity = "WARNING"
-				case level >= slog.LevelInfo:
-					severity = "INFO"
-				default:
-					severity = "DEBUG"
-				}
+	switch attr.Key {
+	// Maps the slog levels to the correct [severity] for GCP Cloud Logging.
+	//
+	// See: https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
+	case slog.LevelKey:
+		var severity string
+		if level, ok := attr.Value.Any().(slog.Level); ok {
+			switch {
+			case level >= slog.LevelError:
+				severity = "ERROR"
+			case level >= slog.LevelWarn:
+				severity = "WARNING"
+			case level >= slog.LevelInfo:
+				severity = "INFO"
+			default:
+				severity = "DEBUG"
 			}
+		}
 
-			return slog.String("severity", severity)
-		},
-		slog.SourceKey: func(attr slog.Attr) slog.Attr {
-			attr.Key = "logging.googleapis.com/sourceLocation"
+		return slog.String("severity", severity)
 
-			return attr
-		},
-		slog.MessageKey: func(attr slog.Attr) slog.Attr {
-			attr.Key = "message"
+	// Format event timestamp according to GCP JSON formats.
+	//
+	// See: https://cloud.google.com/logging/docs/agent/logging/configuration#timestamp-processing
+	case slog.TimeKey:
+		time := attr.Value.Time()
 
-			return attr
-		},
-		// Format event timestamp according to GCP JSON formats.
-		//
-		// See: https://cloud.google.com/logging/docs/agent/logging/configuration#timestamp-processing
-		slog.TimeKey: func(attr slog.Attr) slog.Attr {
-			time := attr.Value.Time()
-
-			return slog.Group("timestamp",
+		return slog.Attr{
+			Key: "timestamp",
+			Value: slog.GroupValue(
 				slog.Int64("seconds", time.Unix()),
 				slog.Int64("nanos", int64(time.Nanosecond())),
-			)
-		},
-	}
-
-	return func(groups []string, attr slog.Attr) slog.Attr {
-		if len(groups) > 0 {
-			return attr
+			),
 		}
 
-		if replace, ok := replacer[attr.Key]; ok {
-			return replace(attr)
-		}
+	case slog.SourceKey:
+		attr.Key = "logging.googleapis.com/sourceLocation"
 
+		return attr
+
+	case slog.MessageKey:
+		attr.Key = "message"
+
+		return attr
+
+	default:
 		return attr
 	}
 }
@@ -153,15 +150,16 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 		for i := len(h.groups) - 1; i >= 0; i-- {
 			grp := h.groups[i]
 
-			attrs := make([]any, 0, len(grp.attrs)+1)
+			attrs := slices.Clone(grp.attrs)
 			if hasAttr {
 				attrs = append(attrs, attr)
 			}
-			for _, attr := range grp.attrs {
-				attrs = append(attrs, attr)
-			}
+
 			if len(attrs) > 0 {
-				attr = slog.Group(grp.name, attrs...)
+				attr = slog.Attr{
+					Key:   grp.name,
+					Value: slog.GroupValue(attrs...),
+				}
 				hasAttr = true
 			}
 		}
@@ -195,17 +193,26 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 		firstFrame, _ := runtime.CallersFrames([]uintptr{record.PC}).Next()
 		handler = handler.WithAttrs(
 			[]slog.Attr{
-				slog.Group("context",
-					slog.Group("reportLocation",
-						slog.String("filePath", firstFrame.File),
-						slog.Int("lineNumber", firstFrame.Line),
-						slog.String("functionName", firstFrame.Function),
+				{
+					Key: "context",
+					Value: slog.GroupValue(
+						slog.Attr{
+							Key: "reportLocation",
+							Value: slog.GroupValue(
+								slog.String("filePath", firstFrame.File),
+								slog.Int("lineNumber", firstFrame.Line),
+								slog.String("functionName", firstFrame.Function),
+							),
+						},
 					),
-				),
-				slog.Group("serviceContext",
-					slog.String("service", h.service),
-					slog.String("version", h.version),
-				),
+				},
+				{
+					Key: "serviceContext",
+					Value: slog.GroupValue(
+						slog.String("service", h.service),
+						slog.String("version", h.version),
+					),
+				},
 				slog.String("stack_trace", stack(record.Message, firstFrame)),
 			})
 	}
@@ -218,7 +225,7 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 }
 
 func stack(message string, firstFrame runtime.Frame) string {
-	stackTrace := &strings.Builder{}
+	var stackTrace strings.Builder
 	stackTrace.WriteString(message)
 	stackTrace.WriteString("\n\n")
 
@@ -244,7 +251,7 @@ func stack(message string, firstFrame runtime.Frame) string {
 		if bytes.Contains(functionLine, firstFuncLine) && bytes.Contains(fileLine, firstFileLine) {
 			stackTrace.Write(functionLine)
 			stackTrace.Write(fileLine)
-			_, _ = frames.WriteTo(stackTrace)
+			stackTrace.Write(frames.Bytes())
 
 			break
 		}
