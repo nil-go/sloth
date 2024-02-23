@@ -10,3 +10,4 @@ Sloth provides opinionated slog handlers for major Cloud providers. It providers
 
 - [`sampling`](sampling) provides a slog handler for sampling records at request level.
 - [`gcp`](gcp) provides a slog handler for emitting JSON logs to GCP Cloud Logging.
+- [`rate`](rate) provides a slog handler for limiting records within the given rate.

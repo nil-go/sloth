@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT license found in the LICENSE file.
 
 /*
-Package rate provides a Handler that limits records with give rate.
+Package rate provides a Handler that limits records within the given rate.
 It caps the CPU and I/O load of logging while attempting to preserve a representative subset of your logs.
 
 It logs the first N records with a given level and message each interval.
