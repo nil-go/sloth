@@ -10,12 +10,13 @@ import (
 )
 
 const (
+	countersPerLevel = 4096
 	gapPerLevel      = slog.LevelError - slog.LevelWarn
 	levels           = (slog.LevelError-slog.LevelDebug)/gapPerLevel + 1
-	countersPerLevel = 4096
 )
 
-type counters [levels][countersPerLevel]counter
+// Use array instead of map to reduce memory allocation and improve performance.
+type counters [levels][countersPerLevel]counter // size:256KiB
 
 func (c *counters) get(level slog.Level, key string) *counter {
 	i := (min(slog.LevelDebug, max(slog.LevelError, level)) - slog.LevelDebug) / gapPerLevel
@@ -43,16 +44,16 @@ type counter struct {
 	counter atomic.Uint64
 }
 
-func (c *counter) Inc(t time.Time, tick time.Duration) uint64 {
+func (c *counter) Inc(t time.Time, interval time.Duration) uint64 {
 	now := t.UnixNano()
 	resetAfter := c.resetAt.Load()
 	if resetAfter > now {
 		return c.counter.Add(1)
 	}
 
+	// Reset the counter for next interval
 	c.counter.Store(1)
-
-	newResetAfter := now + tick.Nanoseconds()
+	newResetAfter := now + interval.Nanoseconds()
 	if !c.resetAt.CompareAndSwap(resetAfter, newResetAfter) {
 		// We raced with another goroutine trying to reset, and it also reset
 		// the counter to 1, so we need to reincrement the counter.
