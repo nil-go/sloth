@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+[0.1.0] - 2024-02-22
+
 ### Added
 
 - Add sampling handler for sampling records at request level (#3).
