@@ -10,7 +10,7 @@ If more records with the same level and message are seen during the same interva
 every Mth message is logged and the rest are dropped.
 
 Keep in mind that the implementation is optimized for speed over absolute precision;
-under load, each tick may be slightly over- or under-sampled.
+under load, each interval may be slightly over- or under-sampled.
 */
 package rate
 
