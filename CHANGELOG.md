@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Add
+
+- Add gcp.WithCallers to retrieve stack trace from error (#14).
+
 ## [0.1.1] - 2024-02-23
 
 ### Changed
