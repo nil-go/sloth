@@ -70,9 +70,11 @@ func WithErrorReporting(service, version string) Option {
 	}
 }
 
-// WithCallers provides a function to get callers on the calling goroutine's stack.
+// WithCallers provides a function to get callers on the calling goroutine's stack
+// while WithErrorReporting has been called.
+// If the callers returns empty slice, the handler gets stack trace from debug.Stack.
 //
-// If Callers is nil, the handler checks method Callers() []uintptr on the error.
+// If Callers is nil, the handler checks method `Callers() []uintptr` on the error.
 func WithCallers(callers func(error) []uintptr) Option {
 	return func(options *options) {
 		options.callers = callers

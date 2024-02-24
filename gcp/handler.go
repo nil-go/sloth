@@ -87,7 +87,7 @@ func replaceAttr(groups []string, attr slog.Attr) slog.Attr { //nolint:cyclop
 	// See: https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
 	case slog.LevelKey:
 		var severity string
-		if level, ok := attr.Value.Any().(slog.Level); ok {
+		if level, ok := attr.Value.Resolve().Any().(slog.Level); ok {
 			switch {
 			case level >= slog.LevelError:
 				severity = "ERROR"
@@ -106,7 +106,7 @@ func replaceAttr(groups []string, attr slog.Attr) slog.Attr { //nolint:cyclop
 	//
 	// See: https://cloud.google.com/logging/docs/agent/logging/configuration#timestamp-processing
 	case slog.TimeKey:
-		time := attr.Value.Time()
+		time := attr.Value.Resolve().Time()
 
 		return slog.Attr{
 			Key: "timestamp",
@@ -153,34 +153,8 @@ func (h logHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return h.handler.Enabled(ctx, level)
 }
 
-func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //nolint:cyclop,funlen
+func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //nolint:funlen
 	handler := h.handler
-
-	if len(h.groups) > 0 {
-		var (
-			attr    slog.Attr
-			hasAttr bool
-		)
-		for i := len(h.groups) - 1; i >= 0; i-- {
-			grp := h.groups[i]
-
-			attrs := slices.Clone(grp.attrs)
-			if hasAttr {
-				attrs = append(attrs, attr)
-			}
-
-			if len(attrs) > 0 {
-				attr = slog.Attr{
-					Key:   grp.name,
-					Value: slog.GroupValue(attrs...),
-				}
-				hasAttr = true
-			}
-		}
-		if hasAttr {
-			handler = handler.WithAttrs([]slog.Attr{attr})
-		}
-	}
 
 	// Associate logs with a trace and span.
 	//
@@ -211,7 +185,7 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 
 		var callers []uintptr
 		record.Attrs(func(attr slog.Attr) bool {
-			if err, ok := attr.Value.Any().(error); ok {
+			if err, ok := attr.Value.Resolve().Any().(error); ok {
 				callers = h.callers(err)
 
 				return false
@@ -253,7 +227,7 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 	}
 
 	for _, group := range h.groups {
-		handler = handler.WithGroup(group.name)
+		handler = handler.WithGroup(group.name).WithAttrs(group.attrs)
 	}
 
 	return handler.Handle(ctx, record)
