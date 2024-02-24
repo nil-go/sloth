@@ -8,6 +8,13 @@ updates:
     schedule:
       interval: daily
 
+  - package-ecosystem: gomod
+    directory: /otel
+    labels:
+      - Skip-Changelog
+    schedule:
+      interval: daily
+
   - package-ecosystem: github-actions
     directory: /
     labels:
