@@ -29,30 +29,30 @@ func WithWriter(writer io.Writer) Option {
 }
 
 // WithTrace enables [trace information] added to the log for [GCP Cloud Trace] integration.
+// The handler use function set in WithTraceContext to get trace information
+// if it does not present in record's attributes yet.
 //
 // [trace information]: https://cloud.google.com/trace/docs/trace-log-integration
 // [GCP Cloud Trace]: https://cloud.google.com/trace
-func WithTrace(project string, contextProvider func(context.Context) TraceContext) Option {
+func WithTrace(project string) Option {
 	if project == "" {
 		panic("cannot add trace information with empty project")
-	}
-	if contextProvider == nil {
-		panic("cannot add trace information with nil context provider")
 	}
 
 	return func(options *options) {
 		options.project = project
-		options.contextProvider = contextProvider
 	}
 }
 
-// TraceContext providers the [W3C Trace Context].
+// WithTraceContext providers the [W3C Trace Context] while WithTrace has been called.
+//
+// If it is nil, the handler finds trace information from record's attributes.
 //
 // [W3C Trace Context]: https://www.w3.org/TR/trace-context/#trace-id
-type TraceContext interface {
-	TraceID() [16]byte
-	SpanID() [8]byte
-	TraceFlags() byte
+func WithTraceContext(provider func(context.Context) (traceID [16]byte, spanID [8]byte, traceFlags byte)) Option {
+	return func(options *options) {
+		options.contextProvider = provider
+	}
 }
 
 // WithErrorReporting enables logs reported as [error events] to [GCP Error Reporting].
@@ -90,7 +90,7 @@ type (
 
 		// For trace.
 		project         string
-		contextProvider func(context.Context) TraceContext
+		contextProvider func(context.Context) (traceID [16]byte, spanID [8]byte, traceFlags byte)
 
 		// For error reporting.
 		service string

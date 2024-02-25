@@ -45,7 +45,7 @@ func New(opts ...Option) slog.Handler {
 		&slog.HandlerOptions{
 			AddSource:   true,
 			Level:       option.level,
-			ReplaceAttr: replaceAttr,
+			ReplaceAttr: replaceAttr(option.project),
 		},
 	)
 	if option.project != "" || option.service != "" {
@@ -61,70 +61,98 @@ func New(opts ...Option) slog.Handler {
 		}
 
 		handler = logHandler{
-			handler: handler,
-			project: option.project, contextProvider: option.contextProvider,
-			service: option.service, version: option.version,
-			callers: option.callers,
+			handler:         handler,
+			contextProvider: option.contextProvider,
+			service:         option.service, version: option.version, callers: option.callers,
 		}
 	}
 
 	return handler
 }
 
-func replaceAttr(groups []string, attr slog.Attr) slog.Attr { //nolint:cyclop
-	if len(groups) > 0 {
-		return attr
-	}
+const (
+	TraceKey      = "trace-id"
+	SpanKey       = "span-id"
+	TraceFlagsKey = "trace-flags"
+)
 
-	// Replace attributes to match GCP Cloud Logging format.
-	//
-	// See: https://cloud.google.com/logging/docs/agent/logging/configuration#special-fields
-	switch attr.Key {
-	// Maps the slog levels to the correct [severity] for GCP Cloud Logging.
-	//
-	// See: https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
-	case slog.LevelKey:
-		var severity string
-		if level, ok := attr.Value.Resolve().Any().(slog.Level); ok {
-			switch {
-			case level >= slog.LevelError:
-				severity = "ERROR"
-			case level >= slog.LevelWarn:
-				severity = "WARNING"
-			case level >= slog.LevelInfo:
-				severity = "INFO"
-			default:
-				severity = "DEBUG"
+func replaceAttr(project string) func(groups []string, attr slog.Attr) slog.Attr { //nolint:cyclop,funlen
+	return func(groups []string, attr slog.Attr) slog.Attr {
+		if len(groups) > 0 {
+			return attr
+		}
+
+		// Replace attributes to match GCP Cloud Logging format.
+		//
+		// See: https://cloud.google.com/logging/docs/agent/logging/configuration#special-fields
+		switch attr.Key {
+		// Maps the slog levels to the correct [severity] for GCP Cloud Logging.
+		//
+		// See: https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
+		case slog.LevelKey:
+			var severity string
+			if level, ok := attr.Value.Resolve().Any().(slog.Level); ok {
+				switch {
+				case level >= slog.LevelError:
+					severity = "ERROR"
+				case level >= slog.LevelWarn:
+					severity = "WARNING"
+				case level >= slog.LevelInfo:
+					severity = "INFO"
+				default:
+					severity = "DEBUG"
+				}
+			}
+
+			return slog.String("severity", severity)
+
+		// Format event timestamp according to GCP JSON formats.
+		//
+		// See: https://cloud.google.com/logging/docs/agent/logging/configuration#timestamp-processing
+		case slog.TimeKey:
+			time := attr.Value.Resolve().Time()
+
+			return slog.Attr{
+				Key: "timestamp",
+				Value: slog.GroupValue(
+					slog.Int64("seconds", time.Unix()),
+					slog.Int64("nanos", int64(time.Nanosecond())),
+				),
+			}
+
+		case slog.SourceKey:
+			attr.Key = "logging.googleapis.com/sourceLocation"
+
+			return attr
+
+		case slog.MessageKey:
+			attr.Key = "message"
+
+			return attr
+		}
+
+		// Associate logs with a trace and span.
+		//
+		// See: https://cloud.google.com/trace/docs/trace-log-integration
+		if project != "" {
+			switch attr.Key {
+			case TraceKey:
+				return slog.String("logging.googleapis.com/trace", "projects/"+project+"/traces/"+attr.Value.String())
+			case SpanKey:
+				attr.Key = "logging.googleapis.com/spanId"
+
+				return attr
+			case TraceFlagsKey:
+				var sampled bool
+				flags, _ := hex.DecodeString(attr.Value.String())
+				if len(flags) > 0 {
+					sampled = flags[0]&0x1 == 0x1 //nolint:gomnd
+				}
+
+				return slog.Bool("logging.googleapis.com/trace_sampled", sampled)
 			}
 		}
 
-		return slog.String("severity", severity)
-
-	// Format event timestamp according to GCP JSON formats.
-	//
-	// See: https://cloud.google.com/logging/docs/agent/logging/configuration#timestamp-processing
-	case slog.TimeKey:
-		time := attr.Value.Resolve().Time()
-
-		return slog.Attr{
-			Key: "timestamp",
-			Value: slog.GroupValue(
-				slog.Int64("seconds", time.Unix()),
-				slog.Int64("nanos", int64(time.Nanosecond())),
-			),
-		}
-
-	case slog.SourceKey:
-		attr.Key = "logging.googleapis.com/sourceLocation"
-
-		return attr
-
-	case slog.MessageKey:
-		attr.Key = "message"
-
-		return attr
-
-	default:
 		return attr
 	}
 }
@@ -134,8 +162,7 @@ type (
 		handler slog.Handler
 		groups  []group
 
-		project         string
-		contextProvider func(context.Context) TraceContext
+		contextProvider func(context.Context) (traceID [16]byte, spanID [8]byte, traceFlags byte)
 
 		service string
 		version string
@@ -157,18 +184,25 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 	// Associate logs with a trace and span.
 	//
 	// See: https://cloud.google.com/trace/docs/trace-log-integration
-	if h.project != "" {
-		const sampled = 0x1
+	if h.contextProvider != nil {
+		var found bool
+		record.Attrs(func(attr slog.Attr) bool {
+			if attr.Key == "trace-id" {
+				found = true
 
-		if traceContext := h.contextProvider(ctx); traceContext.TraceID() != [16]byte{} {
-			traceID := traceContext.TraceID()
-			spanID := traceContext.SpanID()
-			traceFlags := traceContext.TraceFlags()
-			handler = handler.WithAttrs([]slog.Attr{
-				slog.String("logging.googleapis.com/trace", "projects/"+h.project+"/traces/"+hex.EncodeToString(traceID[:])),
-				slog.String("logging.googleapis.com/spanId", hex.EncodeToString(spanID[:])),
-				slog.Bool("logging.googleapis.com/trace_sampled", traceFlags&sampled == sampled),
-			})
+				return false
+			}
+
+			return true
+		})
+		if !found {
+			if traceID, spanID, traceFlags := h.contextProvider(ctx); traceID != [16]byte{} {
+				handler = handler.WithAttrs([]slog.Attr{
+					slog.String(TraceKey, hex.EncodeToString(traceID[:])),
+					slog.String(SpanKey, hex.EncodeToString(spanID[:])),
+					slog.String(TraceFlagsKey, hex.EncodeToString([]byte{traceFlags})),
+				})
+			}
 		}
 	}
 
