@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -107,19 +108,12 @@ func TestHandler(t *testing.T) {
 }
 
 func TestHandler_race(t *testing.T) {
-	procs := (runtime.GOMAXPROCS(0) / 2) * 2
-	buf := &bytes.Buffer{}
-	handler := rate.New(
-		slog.NewTextHandler(buf, &slog.HandlerOptions{
-			Level: slog.LevelDebug,
-			ReplaceAttr: func(groups []string, attr slog.Attr) slog.Attr {
-				if len(groups) == 0 && attr.Key == slog.TimeKey {
-					return slog.Attr{}
-				}
+	t.Parallel()
 
-				return attr
-			},
-		}),
+	procs := (runtime.GOMAXPROCS(0) / 2) * 2
+	counter := atomic.Int64{}
+	handler := rate.New(
+		countHandler{count: &counter},
 		rate.WithFirst(uint64(procs/2)),
 		rate.WithEvery(0),
 	)
@@ -142,5 +136,27 @@ func TestHandler_race(t *testing.T) {
 	close(start)
 	waitGroup.Wait()
 
-	assert.Equal(t, procs, bytes.Count(buf.Bytes(), []byte("\n")))
+	assert.Equal(t, procs, int(counter.Load()))
+}
+
+type countHandler struct {
+	count *atomic.Int64
+}
+
+func (c countHandler) Enabled(context.Context, slog.Level) bool {
+	return true
+}
+
+func (c countHandler) Handle(context.Context, slog.Record) error {
+	c.count.Add(1)
+
+	return nil
+}
+
+func (c countHandler) WithAttrs([]slog.Attr) slog.Handler {
+	return c
+}
+
+func (c countHandler) WithGroup(string) slog.Handler {
+	return c
 }
