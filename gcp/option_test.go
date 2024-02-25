@@ -4,7 +4,6 @@
 package gcp_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/nil-go/sloth/gcp"
@@ -22,18 +21,9 @@ func TestOption_panic(t *testing.T) {
 		{
 			description: "project is empty",
 			option: func() gcp.Option {
-				return gcp.WithTrace("", func(context.Context) gcp.TraceContext {
-					return traceContext{}
-				})
+				return gcp.WithTrace("")
 			},
 			err: "cannot add trace information with empty project",
-		},
-		{
-			description: "context provider is nil",
-			option: func() gcp.Option {
-				return gcp.WithTrace("test", nil)
-			},
-			err: "cannot add trace information with nil context provider",
 		},
 		{
 			description: "service is empty",
