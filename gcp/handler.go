@@ -15,14 +15,12 @@ It also integrates logs with [GCP Cloud Trace] and [GCP Error Reporting] if enab
 package gcp
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
 	"log/slog"
 	"os"
 	"runtime"
-	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
@@ -179,10 +177,6 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 	// See: https://cloud.google.com/error-reporting/docs/formatting-error-messages
 	if record.Level >= slog.LevelError && h.service != "" {
 		firstFrame, _ := runtime.CallersFrames([]uintptr{record.PC}).Next()
-		var stackTrace strings.Builder
-		stackTrace.WriteString(record.Message)
-		stackTrace.WriteString("\n\n")
-
 		var callers []uintptr
 		record.Attrs(func(attr slog.Attr) bool {
 			if err, ok := attr.Value.Resolve().Any().(error); ok {
@@ -194,10 +188,8 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 			return true
 		})
 
-		if len(callers) > 0 {
-			stackFromCallers(&stackTrace, callers)
-		} else {
-			stack(&stackTrace, firstFrame)
+		if len(callers) == 0 {
+			callers = loadCallers(firstFrame)
 		}
 
 		handler = handler.WithAttrs(
@@ -222,7 +214,7 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 						slog.String("version", h.version),
 					),
 				},
-				slog.String("stack_trace", stackTrace.String()),
+				slog.String("stack_trace", stack(record.Message, callers)),
 			})
 	}
 
@@ -233,13 +225,54 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 	return handler.Handle(ctx, record)
 }
 
-func stackFromCallers(stackTrace *strings.Builder, callers []uintptr) {
-	stackTrace.WriteString("goroutine 1 [running]:\n")
+func loadCallers(firstFrame runtime.Frame) []uintptr {
+	var pcs [32]uintptr
+	count := runtime.Callers(2, pcs[:]) //nolint:gomnd // skip [runtime.Callers, this function]
+
+	// Skip frames before the first frame of the record.
+	callers := pcs[:count]
 	frames := runtime.CallersFrames(callers)
 	for {
 		frame, more := frames.Next()
+		if frame.Function == firstFrame.Function &&
+			frame.File == firstFrame.File &&
+			frame.Line == firstFrame.Line {
+			break
+		}
+		callers = callers[1:]
+		if !more {
+			break
+		}
+	}
+
+	if len(callers) > 0 {
+		return callers
+	}
+
+	// If the first frame is not found, all frames prints as stack trace.
+	return pcs[:count]
+}
+
+func stack(message string, callers []uintptr) string {
+	var stackTrace strings.Builder
+	stackTrace.Grow(128 * len(callers)) //nolint:gomnd // It assumes 128 bytes per frame.
+
+	stackTrace.WriteString(message)
+	stackTrace.WriteString("\n\n")
+	// Always use 1 as the goroutine number as golang does not prove a way to get the current goroutine number.
+	// It's meaningless in stace trace since every log may have different goroutine number.
+	// It has to be a goroutine line to match the stack trace format for Error Reporting.
+	stackTrace.WriteString("goroutine 1 [running]:\n")
+
+	frames := runtime.CallersFrames(callers)
+	for {
+		// Each frame has 2 lines in stack trace.
+		frame, more := frames.Next()
+		// The first line is the function.
 		stackTrace.WriteString(frame.Function)
-		stackTrace.WriteString("()\n\t")
+		stackTrace.WriteString("()\n")
+		// The second line is the file:line.
+		stackTrace.WriteString("\t")
 		stackTrace.WriteString(frame.File)
 		stackTrace.WriteString(":")
 		stackTrace.WriteString(strconv.Itoa(frame.Line))
@@ -251,35 +284,8 @@ func stackFromCallers(stackTrace *strings.Builder, callers []uintptr) {
 			break
 		}
 	}
-}
 
-func stack(stackTrace *strings.Builder, firstFrame runtime.Frame) {
-	frames := bytes.NewBuffer(debug.Stack())
-	// Always add the first line (goroutine line) in stack trace.
-	firstLine, err := frames.ReadBytes('\n')
-	stackTrace.Write(firstLine)
-	if err != nil {
-		return
-	}
-
-	// Each frame has 2 lines in stack trace, first line is the function and second line is the file:#line.
-	firstFuncLine := []byte(firstFrame.Function)
-	var functionLine, fileLine []byte
-	for {
-		if functionLine, err = frames.ReadBytes('\n'); err != nil {
-			break
-		}
-		if fileLine, err = frames.ReadBytes('\n'); err != nil {
-			break
-		}
-		if bytes.Contains(functionLine, firstFuncLine) {
-			stackTrace.Write(functionLine)
-			stackTrace.Write(fileLine)
-			stackTrace.Write(frames.Bytes())
-
-			break
-		}
-	}
+	return stackTrace.String()
 }
 
 func (h logHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
