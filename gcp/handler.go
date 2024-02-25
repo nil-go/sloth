@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"log/slog"
 	"os"
 	"runtime"
@@ -50,10 +51,22 @@ func New(opts ...Option) slog.Handler {
 		},
 	)
 	if option.project != "" || option.service != "" {
+		if option.callers == nil {
+			option.callers = func(err error) []uintptr {
+				var callers interface{ Callers() []uintptr }
+				if errors.As(err, &callers) {
+					return callers.Callers()
+				}
+
+				return nil
+			}
+		}
+
 		handler = logHandler{
 			handler: handler,
 			project: option.project, contextProvider: option.contextProvider,
 			service: option.service, version: option.version,
+			callers: option.callers,
 		}
 	}
 
@@ -74,7 +87,7 @@ func replaceAttr(groups []string, attr slog.Attr) slog.Attr { //nolint:cyclop
 	// See: https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
 	case slog.LevelKey:
 		var severity string
-		if level, ok := attr.Value.Any().(slog.Level); ok {
+		if level, ok := attr.Value.Resolve().Any().(slog.Level); ok {
 			switch {
 			case level >= slog.LevelError:
 				severity = "ERROR"
@@ -93,7 +106,7 @@ func replaceAttr(groups []string, attr slog.Attr) slog.Attr { //nolint:cyclop
 	//
 	// See: https://cloud.google.com/logging/docs/agent/logging/configuration#timestamp-processing
 	case slog.TimeKey:
-		time := attr.Value.Time()
+		time := attr.Value.Resolve().Time()
 
 		return slog.Attr{
 			Key: "timestamp",
@@ -128,6 +141,7 @@ type (
 
 		service string
 		version string
+		callers func(error) []uintptr
 	}
 	group struct {
 		name  string
@@ -139,34 +153,8 @@ func (h logHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return h.handler.Enabled(ctx, level)
 }
 
-func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //nolint:cyclop,funlen
+func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //nolint:funlen
 	handler := h.handler
-
-	if len(h.groups) > 0 {
-		var (
-			attr    slog.Attr
-			hasAttr bool
-		)
-		for i := len(h.groups) - 1; i >= 0; i-- {
-			grp := h.groups[i]
-
-			attrs := slices.Clone(grp.attrs)
-			if hasAttr {
-				attrs = append(attrs, attr)
-			}
-
-			if len(attrs) > 0 {
-				attr = slog.Attr{
-					Key:   grp.name,
-					Value: slog.GroupValue(attrs...),
-				}
-				hasAttr = true
-			}
-		}
-		if hasAttr {
-			handler = handler.WithAttrs([]slog.Attr{attr})
-		}
-	}
 
 	// Associate logs with a trace and span.
 	//
@@ -191,6 +179,27 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 	// See: https://cloud.google.com/error-reporting/docs/formatting-error-messages
 	if record.Level >= slog.LevelError && h.service != "" {
 		firstFrame, _ := runtime.CallersFrames([]uintptr{record.PC}).Next()
+		var stackTrace strings.Builder
+		stackTrace.WriteString(record.Message)
+		stackTrace.WriteString("\n\n")
+
+		var callers []uintptr
+		record.Attrs(func(attr slog.Attr) bool {
+			if err, ok := attr.Value.Resolve().Any().(error); ok {
+				callers = h.callers(err)
+
+				return false
+			}
+
+			return true
+		})
+
+		if len(callers) > 0 {
+			stackFromCallers(&stackTrace, callers)
+		} else {
+			stack(&stackTrace, firstFrame)
+		}
+
 		handler = handler.WithAttrs(
 			[]slog.Attr{
 				{
@@ -213,33 +222,48 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 						slog.String("version", h.version),
 					),
 				},
-				slog.String("stack_trace", stack(record.Message, firstFrame)),
+				slog.String("stack_trace", stackTrace.String()),
 			})
 	}
 
 	for _, group := range h.groups {
-		handler = handler.WithGroup(group.name)
+		handler = handler.WithGroup(group.name).WithAttrs(group.attrs)
 	}
 
 	return handler.Handle(ctx, record)
 }
 
-func stack(message string, firstFrame runtime.Frame) string {
-	var stackTrace strings.Builder
-	stackTrace.WriteString(message)
-	stackTrace.WriteString("\n\n")
+func stackFromCallers(stackTrace *strings.Builder, callers []uintptr) {
+	stackTrace.WriteString("goroutine 1 [running]:\n")
+	frames := runtime.CallersFrames(callers)
+	for {
+		frame, more := frames.Next()
+		stackTrace.WriteString(frame.Function)
+		stackTrace.WriteString("()\n\t")
+		stackTrace.WriteString(frame.File)
+		stackTrace.WriteString(":")
+		stackTrace.WriteString(strconv.Itoa(frame.Line))
+		stackTrace.WriteString(" +0x")
+		stackTrace.WriteString(strconv.FormatUint(uint64(frame.PC-frame.Entry), 16))
+		stackTrace.WriteString("\n")
 
+		if !more {
+			break
+		}
+	}
+}
+
+func stack(stackTrace *strings.Builder, firstFrame runtime.Frame) {
 	frames := bytes.NewBuffer(debug.Stack())
 	// Always add the first line (goroutine line) in stack trace.
 	firstLine, err := frames.ReadBytes('\n')
 	stackTrace.Write(firstLine)
 	if err != nil {
-		return stackTrace.String()
+		return
 	}
 
 	// Each frame has 2 lines in stack trace, first line is the function and second line is the file:#line.
 	firstFuncLine := []byte(firstFrame.Function)
-	firstFileLine := []byte(firstFrame.File + ":" + strconv.Itoa(firstFrame.Line))
 	var functionLine, fileLine []byte
 	for {
 		if functionLine, err = frames.ReadBytes('\n'); err != nil {
@@ -248,7 +272,7 @@ func stack(message string, firstFrame runtime.Frame) string {
 		if fileLine, err = frames.ReadBytes('\n'); err != nil {
 			break
 		}
-		if bytes.Contains(functionLine, firstFuncLine) && bytes.Contains(fileLine, firstFileLine) {
+		if bytes.Contains(functionLine, firstFuncLine) {
 			stackTrace.Write(functionLine)
 			stackTrace.Write(fileLine)
 			stackTrace.Write(frames.Bytes())
@@ -256,8 +280,6 @@ func stack(message string, firstFrame runtime.Frame) string {
 			break
 		}
 	}
-
-	return stackTrace.String()
 }
 
 func (h logHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
