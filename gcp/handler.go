@@ -26,6 +26,12 @@ import (
 	"strings"
 )
 
+const (
+	TraceKey      = "trace-id"
+	SpanKey       = "span-id"
+	TraceFlagsKey = "trace-flags"
+)
+
 // New creates a new Handler with the given Option(s).
 // The handler formats records to match [GCP Cloud Logging JSON schema].
 //
@@ -69,12 +75,6 @@ func New(opts ...Option) slog.Handler {
 
 	return handler
 }
-
-const (
-	TraceKey      = "trace-id"
-	SpanKey       = "span-id"
-	TraceFlagsKey = "trace-flags"
-)
 
 func replaceAttr(project string) func(groups []string, attr slog.Attr) slog.Attr { //nolint:cyclop,funlen
 	return func(groups []string, attr slog.Attr) slog.Attr {
@@ -137,14 +137,14 @@ func replaceAttr(project string) func(groups []string, attr slog.Attr) slog.Attr
 		if project != "" {
 			switch attr.Key {
 			case TraceKey:
-				return slog.String("logging.googleapis.com/trace", "projects/"+project+"/traces/"+attr.Value.String())
+				return slog.String("logging.googleapis.com/trace", "projects/"+project+"/traces/"+attr.Value.Resolve().String())
 			case SpanKey:
 				attr.Key = "logging.googleapis.com/spanId"
 
 				return attr
 			case TraceFlagsKey:
 				var sampled bool
-				flags, _ := hex.DecodeString(attr.Value.String())
+				flags, _ := hex.DecodeString(attr.Value.Resolve().String())
 				if len(flags) > 0 {
 					sampled = flags[0]&0x1 == 0x1 //nolint:gomnd
 				}
@@ -160,13 +160,14 @@ func replaceAttr(project string) func(groups []string, attr slog.Attr) slog.Attr
 type (
 	logHandler struct {
 		handler slog.Handler
-		groups  []group
 
 		contextProvider func(context.Context) (traceID [16]byte, spanID [8]byte, traceFlags byte)
 
 		service string
 		version string
 		callers func(error) []uintptr
+
+		groups []group
 	}
 	group struct {
 		name  string
