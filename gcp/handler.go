@@ -45,7 +45,7 @@ func New(opts ...Option) slog.Handler {
 		&slog.HandlerOptions{
 			AddSource:   true,
 			Level:       option.level,
-			ReplaceAttr: replaceAttr(),
+			ReplaceAttr: replaceAttr(option.project),
 		},
 	)
 	if option.project != "" || option.service != "" {
@@ -61,17 +61,22 @@ func New(opts ...Option) slog.Handler {
 		}
 
 		handler = logHandler{
-			handler: handler,
-			project: option.project, contextProvider: option.contextProvider,
-			service: option.service, version: option.version,
-			callers: option.callers,
+			handler:         handler,
+			contextProvider: option.contextProvider,
+			service:         option.service, version: option.version, callers: option.callers,
 		}
 	}
 
 	return handler
 }
 
-func replaceAttr() func(groups []string, attr slog.Attr) slog.Attr { //nolint:cyclop
+const (
+	TraceKey      = "trace-id"
+	SpanKey       = "span-id"
+	TraceFlagsKey = "trace-flags"
+)
+
+func replaceAttr(project string) func(groups []string, attr slog.Attr) slog.Attr { //nolint:cyclop,funlen
 	return func(groups []string, attr slog.Attr) slog.Attr {
 		if len(groups) > 0 {
 			return attr
@@ -124,10 +129,31 @@ func replaceAttr() func(groups []string, attr slog.Attr) slog.Attr { //nolint:cy
 			attr.Key = "message"
 
 			return attr
-
-		default:
-			return attr
 		}
+
+		// Associate logs with a trace and span.
+		//
+		// See: https://cloud.google.com/trace/docs/trace-log-integration
+		if project != "" {
+			switch attr.Key {
+			case TraceKey:
+				return slog.String("logging.googleapis.com/trace", "projects/"+project+"/traces/"+attr.Value.String())
+			case SpanKey:
+				attr.Key = "logging.googleapis.com/spanId"
+
+				return attr
+			case TraceFlagsKey:
+				var sampled bool
+				flags, _ := hex.DecodeString(attr.Value.String())
+				if len(flags) > 0 {
+					sampled = flags[0]&0x1 == 0x1 //nolint:gomnd
+				}
+
+				return slog.Bool("logging.googleapis.com/trace_sampled", sampled)
+			}
+		}
+
+		return attr
 	}
 }
 
@@ -136,7 +162,6 @@ type (
 		handler slog.Handler
 		groups  []group
 
-		project         string
 		contextProvider func(context.Context) (traceID [16]byte, spanID [8]byte, traceFlags byte)
 
 		service string
@@ -159,15 +184,25 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 	// Associate logs with a trace and span.
 	//
 	// See: https://cloud.google.com/trace/docs/trace-log-integration
-	if h.project != "" && h.contextProvider != nil {
-		const sampled = 0x1
+	if h.contextProvider != nil {
+		var found bool
+		record.Attrs(func(attr slog.Attr) bool {
+			if attr.Key == "trace-id" {
+				found = true
 
-		if traceID, spanID, traceFlags := h.contextProvider(ctx); traceID != [16]byte{} {
-			handler = handler.WithAttrs([]slog.Attr{
-				slog.String("logging.googleapis.com/trace", "projects/"+h.project+"/traces/"+hex.EncodeToString(traceID[:])),
-				slog.String("logging.googleapis.com/spanId", hex.EncodeToString(spanID[:])),
-				slog.Bool("logging.googleapis.com/trace_sampled", traceFlags&sampled == sampled),
-			})
+				return false
+			}
+
+			return true
+		})
+		if !found {
+			if traceID, spanID, traceFlags := h.contextProvider(ctx); traceID != [16]byte{} {
+				handler = handler.WithAttrs([]slog.Attr{
+					slog.String(TraceKey, hex.EncodeToString(traceID[:])),
+					slog.String(SpanKey, hex.EncodeToString(spanID[:])),
+					slog.String(TraceFlagsKey, hex.EncodeToString([]byte{traceFlags})),
+				})
+			}
 		}
 	}
 
