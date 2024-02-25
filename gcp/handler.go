@@ -26,9 +26,27 @@ import (
 	"strings"
 )
 
+// Keys for [W3C Trace Context] attributes.
+//
+// [W3C Trace Context]: https://www.w3.org/TR/trace-context/#traceparent-header-field-values
 const (
-	TraceKey      = "trace-id"
-	SpanKey       = "span-id"
+	// TraceKey is the key used by the [ID of the whole trace] forest and is used to uniquely
+	// identify a distributed trace through a system. It is represented as a 16-byte array,
+	// for example, 4bf92f3577b34da6a3ce929d0e0e4736.
+	// All bytes as zero (00000000000000000000000000000000) is considered an invalid value.
+	//
+	// [ID of the whole trace]: https://www.w3.org/TR/trace-context/#trace-id
+	TraceKey = "trace-id"
+	// SpanKey is the key used by the [ID of this request] as known by the caller.
+	// It is represented as an 8-byte array, for example, 00f067aa0ba902b7.
+	// All bytes as zero (0000000000000000) is considered an invalid value.
+	//
+	// [ID of this request]: https://www.w3.org/TR/trace-context/#parent-id
+	SpanKey = "span-id"
+	// TraceFlagsKey is the key used by an 8-bit field that controls [tracing flags]
+	// such as sampling, trace level, etc.
+	//
+	// [tracing flags]: https://www.w3.org/TR/trace-context/#trace-flags
 	TraceFlagsKey = "trace-flags"
 )
 

@@ -48,7 +48,7 @@ func WithTrace(project string) Option {
 //
 // If it is nil, the handler finds trace information from record's attributes.
 //
-// [W3C Trace Context]: https://www.w3.org/TR/trace-context/#trace-id
+// [W3C Trace Context]: https://www.w3.org/TR/trace-context/#traceparent-header-field-values
 func WithTraceContext(provider func(context.Context) (traceID [16]byte, spanID [8]byte, traceFlags byte)) Option {
 	return func(options *options) {
 		options.contextProvider = provider
