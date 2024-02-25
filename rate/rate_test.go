@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -108,6 +109,7 @@ func TestHandler(t *testing.T) {
 func TestHandler_race(t *testing.T) {
 	t.Parallel()
 
+	procs := (runtime.GOMAXPROCS(0) / 2) * 2
 	buf := &bytes.Buffer{}
 	handler := rate.New(
 		slog.NewTextHandler(buf, &slog.HandlerOptions{
@@ -120,13 +122,13 @@ func TestHandler_race(t *testing.T) {
 				return attr
 			},
 		}),
+		rate.WithFirst(uint64(procs/2)),
 		rate.WithEvery(0),
 	)
 	logger := slog.New(handler)
 	ctx := context.Background()
 
 	start := make(chan struct{})
-	procs := 1000
 	var waitGroup sync.WaitGroup
 	waitGroup.Add(procs)
 	for i := 0; i < procs; i++ {
@@ -142,5 +144,5 @@ func TestHandler_race(t *testing.T) {
 	close(start)
 	waitGroup.Wait()
 
-	assert.Equal(t, 200, bytes.Count(buf.Bytes(), []byte("\n")))
+	assert.Equal(t, procs, bytes.Count(buf.Bytes(), []byte("\n")))
 }
