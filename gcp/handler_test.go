@@ -38,27 +38,26 @@ func TestHandler(t *testing.T) {
 			}
 			gHandler := handler.WithGroup("g")
 			if handler.Enabled(ctx, slog.LevelWarn) {
-				record := record(slog.LevelWarn, "warn")
-				record.Add("a", "A")
-				assert.NoError(t, gHandler.WithAttrs([]slog.Attr{slog.String("b", "B")}).Handle(ctx, record))
+				assert.NoError(t, gHandler.WithAttrs([]slog.Attr{slog.String("b", "B")}).
+					Handle(ctx, record(slog.LevelWarn, "warn", "a", "A")))
 			}
 			if handler.Enabled(ctx, slog.LevelError) {
-				record := record(slog.LevelError, "error")
+				var attrs []any
 				if testcase.err != nil {
-					record.Add("error", testcase.err)
+					attrs = append(attrs, "error", testcase.err)
 				}
 				assert.NoError(t, gHandler.WithGroup("h").WithAttrs([]slog.Attr{slog.String("b", "B")}).
-					Handle(ctx, record))
+					Handle(ctx, record(slog.LevelError, "error", attrs...)))
 			}
 
 			path, err := os.Getwd()
 			assert.NoError(t, err)
 			log, after, _ := strings.Cut(buf.String(), "goroutine ")
 			_, after, _ = strings.Cut(after, "[running]:")
-			before, after, _ := strings.Cut(after, "(")
-			_, after, _ = strings.Cut(after, `"g":`)
-			log = strings.ReplaceAll(log, path, "")
-			assert.Equal(t, testcase.expected, log+before+after)
+			before, after, _ := strings.Cut(after, " +0x")
+			_, after, _ = strings.Cut(after, ",")
+			log = strings.ReplaceAll(log+before+after, path, "")
+			assert.Equal(t, testcase.expected, log)
 		})
 	}
 }
@@ -79,8 +78,8 @@ func testCases() []struct {
 		{
 			description: "default",
 			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"INFO","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":37},"message":"info","a":"A"}
-{"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":41},"message":"warn","g":{"b":"B","a":"A"}}
-{"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":46},"message":"error","g":{"h":{"b":"B"}}}
+{"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":42},"message":"warn","g":{"b":"B","a":"A"}}
+{"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":50},"message":"error","g":{"h":{"b":"B"}}}
 `,
 		},
 		{
@@ -88,8 +87,8 @@ func testCases() []struct {
 			opts: []gcp.Option{
 				gcp.WithLevel(slog.LevelWarn),
 			},
-			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":41},"message":"warn","g":{"b":"B","a":"A"}}
-{"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":46},"message":"error","g":{"h":{"b":"B"}}}
+			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":42},"message":"warn","g":{"b":"B","a":"A"}}
+{"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":50},"message":"error","g":{"h":{"b":"B"}}}
 `,
 		},
 		{
@@ -99,8 +98,8 @@ func testCases() []struct {
 			},
 			err: errors.New("an error"),
 			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"INFO","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":37},"message":"info","a":"A"}
-{"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":41},"message":"warn","g":{"b":"B","a":"A"}}
-{"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":46},"message":"error","context":{"reportLocation":{"filePath":"/handler_test.go","lineNumber":46,"functionName":"github.com/nil-go/sloth/gcp_test.TestHandler.func1"}},"serviceContext":{"service":"test","version":"dev"},"stack_trace":"error\n\n\ngithub.com/nil-go/sloth/gcp_test.TestHandler.func1{"h":{"b":"B","error":"an error"}}}
+{"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":42},"message":"warn","g":{"b":"B","a":"A"}}
+{"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":50},"message":"error","context":{"reportLocation":{"filePath":"/handler_test.go","lineNumber":50,"functionName":"github.com/nil-go/sloth/gcp_test.TestHandler.func1"}},"serviceContext":{"service":"test","version":"dev"},"stack_trace":"error\n\n\ngithub.com/nil-go/sloth/gcp_test.TestHandler.func1()\n\t/handler_test.go:50"g":{"h":{"b":"B","error":"an error"}}}
 `,
 		},
 		{
@@ -116,8 +115,8 @@ func testCases() []struct {
 			},
 			err: errors.New("an error"),
 			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"INFO","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":37},"message":"info","a":"A"}
-{"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":41},"message":"warn","g":{"b":"B","a":"A"}}
-{"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":46},"message":"error","context":{"reportLocation":{"filePath":"/handler_test.go","lineNumber":46,"functionName":"github.com/nil-go/sloth/gcp_test.TestHandler.func1"}},"serviceContext":{"service":"test","version":"dev"},"stack_trace":"error\n\n\ngithub.com/nil-go/sloth/gcp_test.testCases.func1{"h":{"b":"B","error":"an error"}}}
+{"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":42},"message":"warn","g":{"b":"B","a":"A"}}
+{"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":50},"message":"error","context":{"reportLocation":{"filePath":"/handler_test.go","lineNumber":50,"functionName":"github.com/nil-go/sloth/gcp_test.TestHandler.func1"}},"serviceContext":{"service":"test","version":"dev"},"stack_trace":"error\n\n\ngithub.com/nil-go/sloth/gcp_test.testCases.func1()\n\t/handler_test.go:111"g":{"h":{"b":"B","error":"an error"}}}
 `,
 		},
 		{
@@ -127,8 +126,8 @@ func testCases() []struct {
 			},
 			err: stackError{errors.New("an error")},
 			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"INFO","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":37},"message":"info","a":"A"}
-{"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":41},"message":"warn","g":{"b":"B","a":"A"}}
-{"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":46},"message":"error","context":{"reportLocation":{"filePath":"/handler_test.go","lineNumber":46,"functionName":"github.com/nil-go/sloth/gcp_test.TestHandler.func1"}},"serviceContext":{"service":"test","version":"dev"},"stack_trace":"error\n\n\ngithub.com/nil-go/sloth/gcp_test.stackError.Callers{"h":{"b":"B","error":"an error"}}}
+{"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":42},"message":"warn","g":{"b":"B","a":"A"}}
+{"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":50},"message":"error","context":{"reportLocation":{"filePath":"/handler_test.go","lineNumber":50,"functionName":"github.com/nil-go/sloth/gcp_test.TestHandler.func1"}},"serviceContext":{"service":"test","version":"dev"},"stack_trace":"error\n\n\ngithub.com/nil-go/sloth/gcp_test.stackError.Callers()\n\t/handler_test.go:152"g":{"h":{"b":"B","error":"an error"}}}
 `,
 		},
 		{
@@ -137,8 +136,8 @@ func testCases() []struct {
 				gcp.WithTrace("test", func(context.Context) gcp.TraceContext { return traceContext{} }),
 			},
 			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"INFO","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":37},"message":"info","a":"A","logging.googleapis.com/trace":"projects/test/traces/4bf92f3577b34da6a3ce929d0e0e4736","logging.googleapis.com/spanId":"00f067aa0ba902b7","logging.googleapis.com/trace_sampled":true}
-{"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":41},"message":"warn","logging.googleapis.com/trace":"projects/test/traces/4bf92f3577b34da6a3ce929d0e0e4736","logging.googleapis.com/spanId":"00f067aa0ba902b7","logging.googleapis.com/trace_sampled":true,"g":{"b":"B","a":"A"}}
-{"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":46},"message":"error","logging.googleapis.com/trace":"projects/test/traces/4bf92f3577b34da6a3ce929d0e0e4736","logging.googleapis.com/spanId":"00f067aa0ba902b7","logging.googleapis.com/trace_sampled":true,"g":{"h":{"b":"B"}}}
+{"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":42},"message":"warn","logging.googleapis.com/trace":"projects/test/traces/4bf92f3577b34da6a3ce929d0e0e4736","logging.googleapis.com/spanId":"00f067aa0ba902b7","logging.googleapis.com/trace_sampled":true,"g":{"b":"B","a":"A"}}
+{"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":50},"message":"error","logging.googleapis.com/trace":"projects/test/traces/4bf92f3577b34da6a3ce929d0e0e4736","logging.googleapis.com/spanId":"00f067aa0ba902b7","logging.googleapis.com/trace_sampled":true,"g":{"h":{"b":"B"}}}
 `,
 		},
 	}
@@ -155,11 +154,14 @@ func (stackError) Callers() []uintptr {
 	return pcs[:]
 }
 
-func record(level slog.Level, message string) slog.Record {
+func record(level slog.Level, message string, attrs ...any) slog.Record {
 	var pcs [1]uintptr
 	runtime.Callers(2, pcs[:])
 
-	return slog.NewRecord(time.Unix(100, 1000), level, message, pcs[0])
+	record := slog.NewRecord(time.Unix(100, 1000), level, message, pcs[0])
+	record.Add(attrs...)
+
+	return record
 }
 
 type traceContext struct{}
