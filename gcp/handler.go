@@ -180,7 +180,7 @@ func (h logHandler) Enabled(ctx context.Context, level slog.Level) bool {
 }
 
 func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //nolint:funlen
-	handler := h.handler
+	var attrs []slog.Attr
 
 	// Associate logs with a trace and span.
 	//
@@ -198,11 +198,11 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 		})
 		if !found {
 			if traceID, spanID, traceFlags := h.contextProvider(ctx); traceID != [16]byte{} {
-				handler = handler.WithAttrs([]slog.Attr{
+				attrs = append(attrs,
 					slog.String(TraceKey, hex.EncodeToString(traceID[:])),
 					slog.String(SpanKey, hex.EncodeToString(spanID[:])),
 					slog.String(TraceFlagsKey, hex.EncodeToString([]byte{traceFlags})),
-				})
+				)
 			}
 		}
 	}
@@ -227,32 +227,34 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 			callers = loadCallers(firstFrame)
 		}
 
-		handler = handler.WithAttrs(
-			[]slog.Attr{
-				{
-					Key: "context",
-					Value: slog.GroupValue(
-						slog.Attr{
-							Key: "reportLocation",
-							Value: slog.GroupValue(
-								slog.String("filePath", firstFrame.File),
-								slog.Int("lineNumber", firstFrame.Line),
-								slog.String("functionName", firstFrame.Function),
-							),
-						},
-					),
-				},
-				{
-					Key: "serviceContext",
-					Value: slog.GroupValue(
-						slog.String("service", h.service),
-						slog.String("version", h.version),
-					),
-				},
-				slog.String("stack_trace", stack(record.Message, callers)),
-			})
+		attrs = append(attrs,
+			slog.Attr{
+				Key: "context",
+				Value: slog.GroupValue(
+					slog.Attr{
+						Key: "reportLocation",
+						Value: slog.GroupValue(
+							slog.String("filePath", firstFrame.File),
+							slog.Int("lineNumber", firstFrame.Line),
+							slog.String("functionName", firstFrame.Function),
+						),
+					},
+				),
+			},
+			slog.Attr{
+				Key: "serviceContext",
+				Value: slog.GroupValue(
+					slog.String("service", h.service),
+					slog.String("version", h.version),
+				),
+			},
+			slog.String("stack_trace", stack(record.Message, callers)),
+		)
 	}
 
+	// Have to add the attributes to the handler before adding the group.
+	// Otherwise, the attributes are added to the group.
+	handler := h.handler.WithAttrs(attrs)
 	for _, group := range h.groups {
 		handler = handler.WithGroup(group.name).WithAttrs(group.attrs)
 	}

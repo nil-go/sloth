@@ -107,8 +107,6 @@ func TestHandler(t *testing.T) {
 }
 
 func TestHandler_race(t *testing.T) {
-	t.Parallel()
-
 	procs := (runtime.GOMAXPROCS(0) / 2) * 2
 	buf := &bytes.Buffer{}
 	handler := rate.New(
