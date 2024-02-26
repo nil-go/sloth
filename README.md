@@ -8,7 +8,18 @@
 
 Sloth provides opinionated slog handlers for major Cloud providers. It providers following slog handlers:
 
-- [`sampling`](sampling) provides a slog handler for sampling records at request level.
-- [`gcp`](gcp) provides a slog handler for emitting JSON logs to GCP Cloud Logging.
-- [`rate`](rate) provides a slog handler for limiting records within the given rate.
-- [`otel`](otel) provides a slog handler for correlation between log records and Open Telemetry spans.
+- The [`gcp`](gcp)  slog handler is designed to emit JSON logs to GCP Cloud Logging by following its strict schema.
+It also supports Cloud Trace correlation and Error Reporting integration.
+It does not need special format for logs emit to AWS Cloud Watch and Azure Monitor
+since they are designed to accept any format of logs.
+
+- The [`rate`](rate) slog handler is designed to limit logs within the given rate to prevent flooding
+during traffic spikes or incidents. It should before the final slog handler that write logs to the final destination.
+
+- The [`otel`](otel) slog handler is designed to correlate logs with Open Telemetry spans.
+It also supports recording logs as span events/error events if enabled.
+
+- The [`sampling`](sampling) slog handler is designed to sample logs under the given minimal level at request scope.
+It discards unsampled logs with lower level unless the buffer is activated by Handler.WithBuffer.
+However, It also supports logs unsampled logs with lower level if there is a log with the minimum level and above.
+It's suggested to correlate with tracing sampling, so that the logs and traces are consistent sampled.

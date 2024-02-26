@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2024-02-25
+
 ### Add
 
 - Add handler for correlation between log records and Open Telemetry spans (#13).

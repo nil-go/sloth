@@ -207,17 +207,14 @@ level=INFO msg=msg3 g.h.error="an error"
 					errors.New("msg1"): {
 						trace.WithTimestamp(time.Unix(100, 1000)),
 						trace.WithAttributes(attribute.String("a", "A"), filePath, semconv.CodeLineNumber(73), function),
-						trace.WithStackTrace(true),
 					},
 					errors.New("msg2"): {
 						trace.WithTimestamp(time.Unix(100, 1000)),
 						trace.WithAttributes(attribute.String("g.b", "B"), filePath, semconv.CodeLineNumber(76), function),
-						trace.WithStackTrace(true),
 					},
 					fmt.Errorf("msg3: %w", errors.New("an error")): {
 						trace.WithTimestamp(time.Unix(100, 1000)),
 						trace.WithAttributes(filePath, semconv.CodeLineNumber(78), function),
-						trace.WithStackTrace(true),
 					},
 				},
 				status:  codes.Error,
