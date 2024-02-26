@@ -110,12 +110,12 @@ func TestHandler(t *testing.T) {
 func TestHandler_race(t *testing.T) {
 	t.Parallel()
 
-	procs := (runtime.GOMAXPROCS(0) / 2) * 2
+	procs := runtime.GOMAXPROCS(0)
 	counter := atomic.Int64{}
 	handler := rate.New(
 		countHandler{count: &counter},
-		rate.WithFirst(uint64(procs/2)),
-		rate.WithEvery(0),
+		rate.WithFirst(1),
+		rate.WithEvery(1000),
 	)
 	logger := slog.New(handler)
 	ctx := context.Background()
@@ -129,14 +129,12 @@ func TestHandler_race(t *testing.T) {
 
 			<-start
 			logger.Log(ctx, slog.LevelInfo, "msg")
-			time.Sleep(2 * time.Second)
-			logger.Log(ctx, slog.LevelInfo, "msg")
 		}()
 	}
 	close(start)
 	waitGroup.Wait()
 
-	assert.Equal(t, procs, int(counter.Load()))
+	assert.Equal(t, 1, int(counter.Load()))
 }
 
 type countHandler struct {
