@@ -129,7 +129,7 @@ func TestHandler_race(t *testing.T) {
 
 			<-start
 			logger.Log(ctx, slog.LevelInfo, "msg")
-			time.Sleep(time.Second)
+			time.Sleep(2 * time.Second)
 			logger.Log(ctx, slog.LevelInfo, "msg")
 		}()
 	}
