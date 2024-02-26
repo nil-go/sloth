@@ -67,7 +67,7 @@ func (e eventHandler) Handle(ctx context.Context, record slog.Record) {
 		} else {
 			err = fmt.Errorf("%s: %w", record.Message, err)
 		}
-		span.RecordError(err, trace.WithTimestamp(record.Time), trace.WithAttributes(attrs...), trace.WithStackTrace(true))
+		span.RecordError(err, trace.WithTimestamp(record.Time), trace.WithAttributes(attrs...))
 	default:
 		for k, v := range errs {
 			attrs = append(attrs, attribute.String(e.prefix+k, v.Error()))
