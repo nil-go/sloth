@@ -35,10 +35,6 @@ func WithWriter(writer io.Writer) Option {
 // [trace information]: https://cloud.google.com/trace/docs/trace-log-integration
 // [GCP Cloud Trace]: https://cloud.google.com/trace
 func WithTrace(project string) Option {
-	if project == "" {
-		panic("cannot add trace information with empty project")
-	}
-
 	return func(options *options) {
 		options.project = project
 	}
@@ -60,10 +56,6 @@ func WithTraceContext(provider func(context.Context) (traceID [16]byte, spanID [
 // [error events]: https://cloud.google.com/error-reporting/docs/formatting-error-messages
 // [GCP Error Reporting]: https://cloud.google.com/error-reporting
 func WithErrorReporting(service, version string) Option {
-	if service == "" {
-		panic("cannot add error information with empty service")
-	}
-
 	return func(options *options) {
 		options.service = service
 		options.version = version
