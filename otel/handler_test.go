@@ -123,9 +123,9 @@ level=INFO msg=msg3 g.h.error="an error"
 				SpanID:     [8]byte{0, 240, 103, 170, 11, 169, 2, 183},
 				TraceFlags: trace.TraceFlags(0),
 			}),
-			expectedLog: `level=INFO msg=msg1 a=A trace-id=4bf92f3577b34da6a3ce929d0e0e4736 span-id=00f067aa0ba902b7 trace-flags=00
-level=INFO msg=msg2 trace-id=4bf92f3577b34da6a3ce929d0e0e4736 span-id=00f067aa0ba902b7 trace-flags=00 g.b=B
-level=INFO msg=msg3 trace-id=4bf92f3577b34da6a3ce929d0e0e4736 span-id=00f067aa0ba902b7 trace-flags=00 g.h.error="an error"
+			expectedLog: `level=INFO msg=msg1 a=A trace_id=4bf92f3577b34da6a3ce929d0e0e4736 span_id=00f067aa0ba902b7 trace_flags=00
+level=INFO msg=msg2 trace_id=4bf92f3577b34da6a3ce929d0e0e4736 span_id=00f067aa0ba902b7 trace_flags=00 g.b=B
+level=INFO msg=msg3 trace_id=4bf92f3577b34da6a3ce929d0e0e4736 span_id=00f067aa0ba902b7 trace_flags=00 g.h.error="an error"
 `,
 		},
 		{

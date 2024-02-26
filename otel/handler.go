@@ -20,9 +20,10 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// Keys for [W3C Trace Context] attributes.
+// Keys for [W3C Trace Context] attributes by following [Trace Context in non-OTLP Log Formats].
 //
 // [W3C Trace Context]: https://www.w3.org/TR/trace-context/#traceparent-header-field-values
+// [Trace Context in non-OTLP Log Formats]: https://www.w3.org/TR/trace-context/#trace-id
 const (
 	// TraceKey is the key used by the [ID of the whole trace] forest and is used to uniquely
 	// identify a distributed trace through a system. It is represented as a 16-byte array,
@@ -30,18 +31,18 @@ const (
 	// All bytes as zero (00000000000000000000000000000000) is considered an invalid value.
 	//
 	// [ID of the whole trace]: https://www.w3.org/TR/trace-context/#trace-id
-	TraceKey = "trace-id"
+	TraceKey = "trace_id"
 	// SpanKey is the key used by the [ID of this request] as known by the caller.
 	// It is represented as an 8-byte array, for example, 00f067aa0ba902b7.
 	// All bytes as zero (0000000000000000) is considered an invalid value.
 	//
 	// [ID of this request]: https://www.w3.org/TR/trace-context/#parent-id
-	SpanKey = "span-id"
+	SpanKey = "span_id"
 	// TraceFlagsKey is the key used by an 8-bit field that controls [tracing flags]
 	// such as sampling, trace level, etc.
 	//
 	// [tracing flags]: https://www.w3.org/TR/trace-context/#trace-flags
-	TraceFlagsKey = "trace-flags"
+	TraceFlagsKey = "trace_flags"
 )
 
 // Handler correlates log records with Open Telemetry spans.
