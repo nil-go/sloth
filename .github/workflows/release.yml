@@ -45,3 +45,17 @@ jobs:
               name: "v${{ steps.query-release-info.outputs.version }}",
               body: `${{ steps.query-release-info.outputs.release-notes }}`
             })
+      - name: Tag Submodules
+        uses: actions/github-script@v7
+        if: steps.create-release.outcome == 'success'
+        with:
+          script: |
+            const modules = [ 'otel' ]
+            for (const module of modules) {
+              github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: "refs/tags/"+module+"/v${{ steps.query-release-info.outputs.version }}",
+                sha: context.sha
+              })
+            }
