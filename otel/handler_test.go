@@ -9,11 +9,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
+	"runtime"
 	"testing"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/nil-go/sloth/otel"
@@ -31,11 +34,73 @@ func TestNew_panic(t *testing.T) {
 	t.Fail()
 }
 
-//nolint:lll
+func record(level slog.Level, message string, attrs ...any) slog.Record {
+	var pcs [1]uintptr
+	runtime.Callers(2, pcs[:])
+
+	record := slog.NewRecord(time.Unix(100, 1000), level, message, pcs[0])
+	record.Add(attrs...)
+
+	return record
+}
+
 func TestHandler(t *testing.T) {
 	t.Parallel()
 
-	testcases := []struct {
+	for _, testcase := range testcases() {
+		testcase := testcase
+
+		t.Run(testcase.description, func(t *testing.T) {
+			t.Parallel()
+
+			span := &spanStub{
+				recording:   testcase.recording,
+				spanContext: testcase.spanContext,
+			}
+			ctx := trace.ContextWithSpan(context.Background(), span)
+
+			buf := &bytes.Buffer{}
+			handler := otel.New(slog.NewTextHandler(buf, &slog.HandlerOptions{
+				ReplaceAttr: func(groups []string, attr slog.Attr) slog.Attr {
+					if len(groups) == 0 && attr.Key == slog.TimeKey {
+						return slog.Attr{}
+					}
+
+					return attr
+				},
+			}), testcase.opts...)
+			assert.NoError(t, handler.WithAttrs([]slog.Attr{slog.String("a", "A")}).
+				Handle(ctx, record(testcase.level, "msg1")))
+			gHandler := handler.WithGroup("g")
+			assert.NoError(t, gHandler.WithAttrs([]slog.Attr{slog.String("b", "B")}).
+				Handle(ctx, record(testcase.level, "msg2")))
+			assert.NoError(t, gHandler.WithGroup("h").
+				Handle(ctx, record(testcase.level, "msg3", "error", errors.New("an error"))))
+
+			assert.Equal(t, testcase.expectedLog, buf.String())
+			assert.Equal(t, testcase.expectedSpan.events, span.events)
+			assert.Equal(t, fmt.Sprintf("%v", testcase.expectedSpan.errors), fmt.Sprintf("%v", span.errors))
+			assert.Equal(t, testcase.expectedSpan.status, span.status)
+			assert.Equal(t, testcase.expectedSpan.message, span.message)
+		})
+	}
+}
+
+//nolint:lll
+func testcases() []struct {
+	description  string
+	level        slog.Level
+	spanContext  trace.SpanContext
+	recording    bool
+	opts         []otel.Option
+	expectedLog  string
+	expectedSpan spanStub
+} {
+	path, _ := os.Getwd()
+	filePath := semconv.CodeFilepath(path + "/handler_test.go")
+	function := semconv.CodeFunction("github.com/nil-go/sloth/otel_test.TestHandler.func1")
+
+	return []struct {
 		description  string
 		level        slog.Level
 		spanContext  trace.SpanContext
@@ -112,9 +177,18 @@ level=INFO msg=msg3 g.h.error="an error"
 			},
 			expectedSpan: spanStub{
 				events: map[string][]trace.EventOption{
-					"msg1": {trace.WithTimestamp(time.Time{}), trace.WithAttributes(attribute.String("a", "A"))},
-					"msg2": {trace.WithTimestamp(time.Time{}), trace.WithAttributes(attribute.String("g.b", "B"))},
-					"msg3": {trace.WithTimestamp(time.Time{}), trace.WithAttributes(attribute.String("g.h.error", "an error"))},
+					"msg1": {
+						trace.WithTimestamp(time.Unix(100, 1000)),
+						trace.WithAttributes(attribute.String("a", "A"), filePath, semconv.CodeLineNumber(73), function),
+					},
+					"msg2": {
+						trace.WithTimestamp(time.Unix(100, 1000)),
+						trace.WithAttributes(attribute.String("g.b", "B"), filePath, semconv.CodeLineNumber(76), function),
+					},
+					"msg3": {
+						trace.WithTimestamp(time.Unix(100, 1000)),
+						trace.WithAttributes(filePath, semconv.CodeLineNumber(78), function, attribute.String("g.h.error", "an error")),
+					},
 				},
 			},
 		},
@@ -130,9 +204,21 @@ level=INFO msg=msg3 g.h.error="an error"
 			},
 			expectedSpan: spanStub{
 				errors: map[error][]trace.EventOption{
-					errors.New("msg1"): {trace.WithTimestamp(time.Time{}), trace.WithAttributes(attribute.String("a", "A")), trace.WithStackTrace(true)},
-					errors.New("msg2"): {trace.WithTimestamp(time.Time{}), trace.WithAttributes(attribute.String("g.b", "B")), trace.WithStackTrace(true)},
-					fmt.Errorf("msg3: %w", errors.New("an error")): {trace.WithTimestamp(time.Time{}), trace.WithAttributes(), trace.WithStackTrace(true)},
+					errors.New("msg1"): {
+						trace.WithTimestamp(time.Unix(100, 1000)),
+						trace.WithAttributes(attribute.String("a", "A"), filePath, semconv.CodeLineNumber(73), function),
+						trace.WithStackTrace(true),
+					},
+					errors.New("msg2"): {
+						trace.WithTimestamp(time.Unix(100, 1000)),
+						trace.WithAttributes(attribute.String("g.b", "B"), filePath, semconv.CodeLineNumber(76), function),
+						trace.WithStackTrace(true),
+					},
+					fmt.Errorf("msg3: %w", errors.New("an error")): {
+						trace.WithTimestamp(time.Unix(100, 1000)),
+						trace.WithAttributes(filePath, semconv.CodeLineNumber(78), function),
+						trace.WithStackTrace(true),
+					},
 				},
 				status:  codes.Error,
 				message: "msg3",
@@ -153,43 +239,21 @@ level=INFO msg=msg3 g.h.error="an error"
 `,
 			expectedSpan: spanStub{
 				events: map[string][]trace.EventOption{
-					"msg1": {trace.WithTimestamp(time.Time{}), trace.WithAttributes(attribute.String("a", "A"))},
-					"msg2": {trace.WithTimestamp(time.Time{}), trace.WithAttributes(attribute.String("g.b", "B"))},
-					"msg3": {trace.WithTimestamp(time.Time{}), trace.WithAttributes(attribute.String("g.h.error", "an error"))},
+					"msg1": {
+						trace.WithTimestamp(time.Unix(100, 1000)),
+						trace.WithAttributes(attribute.String("a", "A"), filePath, semconv.CodeLineNumber(73), function),
+					},
+					"msg2": {
+						trace.WithTimestamp(time.Unix(100, 1000)),
+						trace.WithAttributes(attribute.String("g.b", "B"), filePath, semconv.CodeLineNumber(76), function),
+					},
+					"msg3": {
+						trace.WithTimestamp(time.Unix(100, 1000)),
+						trace.WithAttributes(filePath, semconv.CodeLineNumber(78), function, attribute.String("g.h.error", "an error")),
+					},
 				},
 			},
 		},
-	}
-
-	for _, testcase := range testcases {
-		testcase := testcase
-
-		t.Run(testcase.description, func(t *testing.T) {
-			t.Parallel()
-
-			span := &spanStub{
-				recording:   testcase.recording,
-				spanContext: testcase.spanContext,
-			}
-			ctx := trace.ContextWithSpan(context.Background(), span)
-
-			buf := &bytes.Buffer{}
-			handler := otel.New(slog.NewTextHandler(buf, &slog.HandlerOptions{}), testcase.opts...)
-			assert.NoError(t, handler.WithAttrs([]slog.Attr{slog.String("a", "A")}).
-				Handle(ctx, slog.Record{Level: testcase.level, Message: "msg1"}))
-			gHandler := handler.WithGroup("g")
-			assert.NoError(t, gHandler.WithAttrs([]slog.Attr{slog.String("b", "B")}).
-				Handle(ctx, slog.Record{Level: testcase.level, Message: "msg2"}))
-			record := slog.Record{Level: testcase.level, Message: "msg3"}
-			record.Add("error", errors.New("an error"))
-			assert.NoError(t, gHandler.WithGroup("h").Handle(ctx, record))
-
-			assert.Equal(t, testcase.expectedLog, buf.String())
-			assert.Equal(t, testcase.expectedSpan.events, span.events)
-			assert.Equal(t, fmt.Sprintf("%v", testcase.expectedSpan.errors), fmt.Sprintf("%v", span.errors))
-			assert.Equal(t, testcase.expectedSpan.status, span.status)
-			assert.Equal(t, testcase.expectedSpan.message, span.message)
-		})
 	}
 }
 

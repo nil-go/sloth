@@ -21,7 +21,7 @@ import (
 func TestHandler(t *testing.T) {
 	t.Parallel()
 
-	for _, testcase := range testCases() {
+	for _, testcase := range testcases() {
 		testcase := testcase
 
 		t.Run(testcase.description, func(t *testing.T) {
@@ -87,7 +87,7 @@ func record(level slog.Level, message string, attrs ...any) slog.Record {
 }
 
 //nolint:lll
-func testCases() []struct {
+func testcases() []struct {
 	description string
 	opts        []gcp.Option
 	err         error
@@ -140,7 +140,7 @@ func testCases() []struct {
 			err: errors.New("an error"),
 			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"INFO","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":36},"message":"info","a":"A","trace-id":"4bf92f3577b34da6a3ce929d0e0e4736","span-id":"00f067aa0ba902b7","trace-flags":"01"}
 {"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":45},"message":"warn","g":{"b":"B","a":"A"}}
-{"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":53},"message":"error","context":{"reportLocation":{"filePath":"/handler_test.go","lineNumber":53,"functionName":"github.com/nil-go/sloth/gcp_test.TestHandler.func1"}},"serviceContext":{"service":"test","version":"dev"},"stack_trace":"error\n\n\ngithub.com/nil-go/sloth/gcp_test.testCases.func1()\n\t/handler_test.go:135"g":{"h":{"b":"B","error":"an error"}}}
+{"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":53},"message":"error","context":{"reportLocation":{"filePath":"/handler_test.go","lineNumber":53,"functionName":"github.com/nil-go/sloth/gcp_test.TestHandler.func1"}},"serviceContext":{"service":"test","version":"dev"},"stack_trace":"error\n\n\ngithub.com/nil-go/sloth/gcp_test.testcases.func1()\n\t/handler_test.go:135"g":{"h":{"b":"B","error":"an error"}}}
 `,
 		},
 		{
