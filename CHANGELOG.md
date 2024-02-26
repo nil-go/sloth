@@ -7,6 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.2] - 2024-02-26
+
+### Removed
+- Remove panic from gcp options (#23).
+
 ## [0.2.1] - 2024-02-25
 
 ### Changed
