@@ -7,6 +7,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.1] - 2024-02-25
+
+### Changed
+
+- Change trace context fields name according to
+[Trace Context in non-OTLP Log Formats](https://opentelemetry.io/docs/specs/otel/compatibility/logging_trace_context/) (#22).
+
 ## [0.2.0] - 2024-02-25
 
 ### Add

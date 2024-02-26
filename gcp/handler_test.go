@@ -34,9 +34,9 @@ func TestHandler(t *testing.T) {
 			if handler.Enabled(ctx, slog.LevelInfo) {
 				assert.NoError(t, handler.WithAttrs([]slog.Attr{slog.String("a", "A")}).
 					Handle(ctx, record(slog.LevelInfo, "info",
-						"trace-id", "4bf92f3577b34da6a3ce929d0e0e4736",
-						"span-id", "00f067aa0ba902b7",
-						"trace-flags", "01"),
+						"trace_id", "4bf92f3577b34da6a3ce929d0e0e4736",
+						"span_id", "00f067aa0ba902b7",
+						"trace_flags", "01"),
 					))
 			}
 			gHandler := handler.WithGroup("g")
@@ -101,7 +101,7 @@ func testcases() []struct {
 	}{
 		{
 			description: "default",
-			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"INFO","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":36},"message":"info","a":"A","trace-id":"4bf92f3577b34da6a3ce929d0e0e4736","span-id":"00f067aa0ba902b7","trace-flags":"01"}
+			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"INFO","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":36},"message":"info","a":"A","trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","span_id":"00f067aa0ba902b7","trace_flags":"01"}
 {"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":45},"message":"warn","g":{"b":"B","a":"A"}}
 {"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":53},"message":"error","g":{"h":{"b":"B"}}}
 `,
@@ -121,7 +121,7 @@ func testcases() []struct {
 				gcp.WithErrorReporting("test", "dev"),
 			},
 			err: errors.New("an error"),
-			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"INFO","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":36},"message":"info","a":"A","trace-id":"4bf92f3577b34da6a3ce929d0e0e4736","span-id":"00f067aa0ba902b7","trace-flags":"01"}
+			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"INFO","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":36},"message":"info","a":"A","trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","span_id":"00f067aa0ba902b7","trace_flags":"01"}
 {"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":45},"message":"warn","g":{"b":"B","a":"A"}}
 {"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":53},"message":"error","context":{"reportLocation":{"filePath":"/handler_test.go","lineNumber":53,"functionName":"github.com/nil-go/sloth/gcp_test.TestHandler.func1"}},"serviceContext":{"service":"test","version":"dev"},"stack_trace":"error\n\n\ngithub.com/nil-go/sloth/gcp_test.TestHandler.func1()\n\t/handler_test.go:53"g":{"h":{"b":"B","error":"an error"}}}
 `,
@@ -138,7 +138,7 @@ func testcases() []struct {
 				}),
 			},
 			err: errors.New("an error"),
-			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"INFO","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":36},"message":"info","a":"A","trace-id":"4bf92f3577b34da6a3ce929d0e0e4736","span-id":"00f067aa0ba902b7","trace-flags":"01"}
+			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"INFO","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":36},"message":"info","a":"A","trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","span_id":"00f067aa0ba902b7","trace_flags":"01"}
 {"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":45},"message":"warn","g":{"b":"B","a":"A"}}
 {"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":53},"message":"error","context":{"reportLocation":{"filePath":"/handler_test.go","lineNumber":53,"functionName":"github.com/nil-go/sloth/gcp_test.TestHandler.func1"}},"serviceContext":{"service":"test","version":"dev"},"stack_trace":"error\n\n\ngithub.com/nil-go/sloth/gcp_test.testcases.func1()\n\t/handler_test.go:135"g":{"h":{"b":"B","error":"an error"}}}
 `,
@@ -149,7 +149,7 @@ func testcases() []struct {
 				gcp.WithErrorReporting("test", "dev"),
 			},
 			err: stackError{errors.New("an error")},
-			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"INFO","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":36},"message":"info","a":"A","trace-id":"4bf92f3577b34da6a3ce929d0e0e4736","span-id":"00f067aa0ba902b7","trace-flags":"01"}
+			expected: `{"timestamp":{"seconds":100,"nanos":1000},"severity":"INFO","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":36},"message":"info","a":"A","trace_id":"4bf92f3577b34da6a3ce929d0e0e4736","span_id":"00f067aa0ba902b7","trace_flags":"01"}
 {"timestamp":{"seconds":100,"nanos":1000},"severity":"WARNING","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":45},"message":"warn","g":{"b":"B","a":"A"}}
 {"timestamp":{"seconds":100,"nanos":1000},"severity":"ERROR","logging.googleapis.com/sourceLocation":{"function":"github.com/nil-go/sloth/gcp_test.TestHandler.func1","file":"/handler_test.go","line":53},"message":"error","context":{"reportLocation":{"filePath":"/handler_test.go","lineNumber":53,"functionName":"github.com/nil-go/sloth/gcp_test.TestHandler.func1"}},"serviceContext":{"service":"test","version":"dev"},"stack_trace":"error\n\n\ngithub.com/nil-go/sloth/gcp_test.stackError.Callers()\n\t/handler_test.go:74"g":{"h":{"b":"B","error":"an error"}}}
 `,
