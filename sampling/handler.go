@@ -61,10 +61,9 @@ func New(handler slog.Handler, sampler func(ctx context.Context) bool, opts ...O
 	if option.bufferSize == 0 {
 		option.bufferSize = 10
 	}
-	option.bufferPool = &sync.Pool{
-		New: func() interface{} {
-			return &buffer{entries: make(chan entry, option.bufferSize)}
-		},
+	option.bufferPool = &sync.Pool{}
+	option.bufferPool.New = func() any {
+		return &buffer{pool: option.bufferPool, entries: make(chan entry, option.bufferSize)}
 	}
 
 	return option.Handler
@@ -126,14 +125,12 @@ func (h Handler) WithBuffer(ctx context.Context) (context.Context, func()) {
 	buf := h.bufferPool.Get().(*buffer) //nolint:forcetypeassert,errcheck
 	ctx = context.WithValue(ctx, contextKey{}, buf)
 
-	return ctx, func() {
-		buf.reset()
-		h.bufferPool.Put(buf)
-	}
+	return ctx, buf.reset
 }
 
 type (
 	buffer struct {
+		pool    *sync.Pool
 		entries chan entry
 		drained atomic.Bool
 	}
@@ -177,16 +174,17 @@ func (b *buffer) drain() {
 }
 
 func (b *buffer) reset() {
-	if drained := b.drained.Swap(false); drained {
-		return
-	}
-
-	// Discard the buffer.
-	for {
-		select {
-		case <-b.entries:
-		default:
-			return
+	if drained := b.drained.Swap(false); !drained {
+		// Discard the buffer.
+	loop:
+		for {
+			select {
+			case <-b.entries:
+			default:
+				break loop
+			}
 		}
 	}
+
+	b.pool.Put(b)
 }
