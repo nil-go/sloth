@@ -50,9 +50,10 @@ func New(handler slog.Handler, sampler func(ctx context.Context) bool, opts ...O
 
 	option := &options{
 		Handler: Handler{
-			handler: handler,
-			sampler: sampler,
-			level:   slog.LevelError,
+			handler:    handler,
+			sampler:    sampler,
+			level:      slog.LevelError,
+			bufferPool: &sync.Pool{},
 		},
 	}
 	for _, opt := range opts {
@@ -61,7 +62,6 @@ func New(handler slog.Handler, sampler func(ctx context.Context) bool, opts ...O
 	if option.bufferSize == 0 {
 		option.bufferSize = 10
 	}
-	option.bufferPool = &sync.Pool{}
 	option.bufferPool.New = func() any {
 		return &buffer{pool: option.bufferPool, entries: make(chan entry, option.bufferSize)}
 	}
