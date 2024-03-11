@@ -93,12 +93,12 @@ func (h Handler) Handle(ctx context.Context, record slog.Record) error {
 			slog.String(SpanKey, hex.EncodeToString(sid[:])),
 			slog.String(TraceFlagsKey, hex.EncodeToString([]byte{byte(flags)})),
 		)
-	}
 
-	if h.recordEvent && h.eventHandler.Enabled(ctx) {
-		h.eventHandler.Handle(ctx, record)
-		if !h.passThrough {
-			return nil
+		if h.recordEvent && h.eventHandler.Enabled(ctx) {
+			h.eventHandler.Handle(ctx, record)
+			if !h.passThrough {
+				return nil
+			}
 		}
 	}
 
