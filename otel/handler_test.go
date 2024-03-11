@@ -169,6 +169,8 @@ level=INFO msg=msg3 g.h.error="an error"
 		{
 			description: "with record event (info)",
 			spanContext: trace.NewSpanContext(trace.SpanContextConfig{
+				TraceID:    [16]byte{75, 249, 47, 53, 119, 179, 77, 166, 163, 206, 146, 157, 14, 14, 71, 54},
+				SpanID:     [8]byte{0, 240, 103, 170, 11, 169, 2, 183},
 				TraceFlags: trace.TraceFlags(1),
 			}),
 			recording: true,
@@ -196,6 +198,8 @@ level=INFO msg=msg3 g.h.error="an error"
 			description: "with record event (error)",
 			level:       slog.LevelError,
 			spanContext: trace.NewSpanContext(trace.SpanContextConfig{
+				TraceID:    [16]byte{75, 249, 47, 53, 119, 179, 77, 166, 163, 206, 146, 157, 14, 14, 71, 54},
+				SpanID:     [8]byte{0, 240, 103, 170, 11, 169, 2, 183},
 				TraceFlags: trace.TraceFlags(1),
 			}),
 			recording: true,
@@ -222,17 +226,19 @@ level=INFO msg=msg3 g.h.error="an error"
 			},
 		},
 		{
-			description: "pass through",
+			description: "with record event (pass through)",
 			spanContext: trace.NewSpanContext(trace.SpanContextConfig{
+				TraceID:    [16]byte{75, 249, 47, 53, 119, 179, 77, 166, 163, 206, 146, 157, 14, 14, 71, 54},
+				SpanID:     [8]byte{0, 240, 103, 170, 11, 169, 2, 183},
 				TraceFlags: trace.TraceFlags(1),
 			}),
 			recording: true,
 			opts: []otel.Option{
 				otel.WithRecordEvent(true),
 			},
-			expectedLog: `level=INFO msg=msg1 a=A
-level=INFO msg=msg2 g.b=B
-level=INFO msg=msg3 g.h.error="an error"
+			expectedLog: `level=INFO msg=msg1 a=A trace_id=4bf92f3577b34da6a3ce929d0e0e4736 span_id=00f067aa0ba902b7 trace_flags=01
+level=INFO msg=msg2 trace_id=4bf92f3577b34da6a3ce929d0e0e4736 span_id=00f067aa0ba902b7 trace_flags=01 g.b=B
+level=INFO msg=msg3 trace_id=4bf92f3577b34da6a3ce929d0e0e4736 span_id=00f067aa0ba902b7 trace_flags=01 g.h.error="an error"
 `,
 			expectedSpan: spanStub{
 				events: map[string][]trace.EventOption{
@@ -250,6 +256,20 @@ level=INFO msg=msg3 g.h.error="an error"
 					},
 				},
 			},
+		},
+		{
+			description: "with record event (invalid span context)",
+			spanContext: trace.NewSpanContext(trace.SpanContextConfig{
+				TraceFlags: trace.TraceFlags(1),
+			}),
+			recording: true,
+			opts: []otel.Option{
+				otel.WithRecordEvent(true),
+			},
+			expectedLog: `level=INFO msg=msg1 a=A
+level=INFO msg=msg2 g.b=B
+level=INFO msg=msg3 g.h.error="an error"
+`,
 		},
 	}
 }

@@ -7,6 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.3] - 2024-03-11
+
+### Fixed
+- Pass through log with invalid trace context (#28).
+
 ## [0.2.2] - 2024-02-26
 
 ### Removed
