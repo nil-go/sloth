@@ -181,6 +181,7 @@ type (
 		handler slog.Handler
 
 		contextProvider func(context.Context) (traceID [16]byte, spanID [8]byte, traceFlags byte)
+		hasTrace        bool
 
 		service string
 		version string
@@ -198,23 +199,27 @@ func (h logHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return h.handler.Enabled(ctx, level)
 }
 
-func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //nolint:funlen
+func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //nolint:cyclop,funlen
 	var attrs []slog.Attr
 
 	// Associate logs with a trace and span.
 	//
 	// See: https://cloud.google.com/trace/docs/trace-log-integration
-	if h.contextProvider != nil {
+	if !h.hasTrace && h.contextProvider != nil { //nolint:nestif
 		var found bool
-		record.Attrs(func(attr slog.Attr) bool {
-			if attr.Key == TraceKey {
-				found = true
+		// Only search for trace attributes if there are no groups.
+		if len(h.groups) == 0 {
+			record.Attrs(func(attr slog.Attr) bool {
+				if attr.Key == TraceKey {
+					found = true
 
-				return false
-			}
+					return false
+				}
 
-			return true
-		})
+				return true
+			})
+		}
+
 		if !found {
 			if traceID, spanID, traceFlags := h.contextProvider(ctx); traceID != [16]byte{} {
 				attrs = append(attrs,
@@ -347,6 +352,9 @@ func stack(message string, callers []uintptr) string {
 func (h logHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	if len(h.groups) == 0 {
 		h.handler = h.handler.WithAttrs(attrs)
+		if slices.ContainsFunc(attrs, func(attr slog.Attr) bool { return attr.Key == TraceKey }) {
+			h.hasTrace = true
+		}
 
 		return h
 	}

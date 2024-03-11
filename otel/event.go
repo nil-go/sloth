@@ -56,8 +56,6 @@ func (e eventHandler) Handle(ctx context.Context, record slog.Record) {
 	span := trace.SpanFromContext(ctx)
 	switch {
 	case record.Level >= slog.LevelError:
-		span.SetStatus(codes.Error, record.Message)
-
 		var err error
 		for _, e := range errs {
 			err = errors.Join(err, e)
@@ -68,6 +66,7 @@ func (e eventHandler) Handle(ctx context.Context, record slog.Record) {
 			err = fmt.Errorf("%s: %w", record.Message, err)
 		}
 		span.RecordError(err, trace.WithTimestamp(record.Time), trace.WithAttributes(attrs...))
+		span.SetStatus(codes.Error, record.Message)
 	default:
 		for k, v := range errs {
 			attrs = append(attrs, attribute.String(e.prefix+k, v.Error()))

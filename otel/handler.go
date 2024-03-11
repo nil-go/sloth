@@ -82,17 +82,16 @@ func (h Handler) Enabled(ctx context.Context, level slog.Level) bool {
 }
 
 func (h Handler) Handle(ctx context.Context, record slog.Record) error {
-	var attrs []slog.Attr
-
+	handler := h.handler
 	if spanContext := trace.SpanContextFromContext(ctx); spanContext.IsValid() {
 		tid := spanContext.TraceID()
 		sid := spanContext.SpanID()
 		flags := spanContext.TraceFlags()
-		attrs = append(attrs,
+		handler = handler.WithAttrs([]slog.Attr{
 			slog.String(TraceKey, hex.EncodeToString(tid[:])),
 			slog.String(SpanKey, hex.EncodeToString(sid[:])),
 			slog.String(TraceFlagsKey, hex.EncodeToString([]byte{byte(flags)})),
-		)
+		})
 
 		if h.recordEvent && h.eventHandler.Enabled(ctx) {
 			h.eventHandler.Handle(ctx, record)
@@ -102,9 +101,6 @@ func (h Handler) Handle(ctx context.Context, record slog.Record) error {
 		}
 	}
 
-	// Have to add the attributes to the handler before adding the group.
-	// Otherwise, the attributes are added to the group.
-	handler := h.handler.WithAttrs(attrs)
 	for _, group := range h.groups {
 		handler = handler.WithGroup(group.name).WithAttrs(group.attrs)
 	}
