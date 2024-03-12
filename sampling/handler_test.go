@@ -118,7 +118,7 @@ level=INFO msg=info3
 			ctx := context.Background()
 			if testcase.buffered {
 				var put func()
-				ctx, put = handler.WithBuffer(ctx)
+				ctx, put = sampling.WithBuffer(ctx)
 				defer put()
 			}
 
@@ -148,7 +148,7 @@ func TestHandler_overflow(t *testing.T) {
 	)
 	logger := slog.New(handler)
 
-	ctx, put := handler.WithBuffer(context.Background())
+	ctx, put := sampling.WithBuffer(context.Background())
 	defer put()
 
 	logger.InfoContext(ctx, "info")

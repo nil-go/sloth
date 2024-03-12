@@ -111,7 +111,7 @@ func (h Handler) WithGroup(name string) slog.Handler {
 //
 //	ctx, cancel := h.WithBuffer(ctx)
 //	defer cancel()
-func (h Handler) WithBuffer(ctx context.Context) (context.Context, func()) {
+func WithBuffer(ctx context.Context) (context.Context, func()) {
 	buf := bufferPool.Get().(*buffer) //nolint:forcetypeassert,errcheck
 	ctx = context.WithValue(ctx, contextKey{}, buf)
 
