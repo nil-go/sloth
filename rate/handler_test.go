@@ -39,34 +39,38 @@ func TestHandler(t *testing.T) {
 		{
 			description: "level error",
 			level:       slog.LevelError,
-			expected: "level=ERROR msg=msg pos=first\n" +
-				"level=ERROR msg=msg pos=second\n" +
-				"level=ERROR msg=msg pos=fourth\n" +
-				"level=ERROR msg=msg g.pos=after\n",
+			expected: `level=ERROR msg=msg pos=first
+level=ERROR msg=msg pos=second
+level=ERROR msg=msg pos=fourth
+level=ERROR msg=msg g.pos=after
+`,
 		},
 		{
 			description: "level warn",
 			level:       slog.LevelWarn,
-			expected: "level=WARN msg=msg pos=first\n" +
-				"level=WARN msg=msg pos=second\n" +
-				"level=WARN msg=msg pos=fourth\n" +
-				"level=WARN msg=msg g.pos=after\n",
+			expected: `level=WARN msg=msg pos=first
+level=WARN msg=msg pos=second
+level=WARN msg=msg pos=fourth
+level=WARN msg=msg g.pos=after
+`,
 		},
 		{
 			description: "level info",
 			level:       slog.LevelInfo,
-			expected: "level=INFO msg=msg pos=first\n" +
-				"level=INFO msg=msg pos=second\n" +
-				"level=INFO msg=msg pos=fourth\n" +
-				"level=INFO msg=msg g.pos=after\n",
+			expected: `level=INFO msg=msg pos=first
+level=INFO msg=msg pos=second
+level=INFO msg=msg pos=fourth
+level=INFO msg=msg g.pos=after
+`,
 		},
 		{
 			description: "level debug",
 			level:       slog.LevelDebug,
-			expected: "level=DEBUG msg=msg pos=first\n" +
-				"level=DEBUG msg=msg pos=second\n" +
-				"level=DEBUG msg=msg pos=fourth\n" +
-				"level=DEBUG msg=msg g.pos=after\n",
+			expected: `level=DEBUG msg=msg pos=first
+level=DEBUG msg=msg pos=second
+level=DEBUG msg=msg pos=fourth
+level=DEBUG msg=msg g.pos=after
+`,
 		},
 	}
 

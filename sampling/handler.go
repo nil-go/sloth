@@ -21,6 +21,7 @@ package sampling
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"sync"
 	"sync/atomic"
 )
@@ -33,8 +34,6 @@ type Handler struct {
 	sampler func(ctx context.Context) bool
 
 	level slog.Level
-
-	bufferPool *sync.Pool
 }
 
 type contextKey struct{}
@@ -49,24 +48,15 @@ func New(handler slog.Handler, sampler func(ctx context.Context) bool, opts ...O
 	}
 
 	option := &options{
-		Handler: Handler{
-			handler:    handler,
-			sampler:    sampler,
-			level:      slog.LevelError,
-			bufferPool: &sync.Pool{},
-		},
+		handler: handler,
+		sampler: sampler,
+		level:   slog.LevelError,
 	}
 	for _, opt := range opts {
 		opt(option)
 	}
-	if option.bufferSize == 0 {
-		option.bufferSize = 10
-	}
-	option.bufferPool.New = func() any {
-		return &buffer{pool: option.bufferPool, entries: make(chan entry, option.bufferSize)}
-	}
 
-	return option.Handler
+	return Handler(*option)
 }
 
 func (h Handler) Enabled(ctx context.Context, level slog.Level) bool {
@@ -122,7 +112,7 @@ func (h Handler) WithGroup(name string) slog.Handler {
 //	ctx, cancel := h.WithBuffer(ctx)
 //	defer cancel()
 func (h Handler) WithBuffer(ctx context.Context) (context.Context, func()) {
-	buf := h.bufferPool.Get().(*buffer) //nolint:forcetypeassert,errcheck
+	buf := bufferPool.Get().(*buffer) //nolint:forcetypeassert,errcheck
 	ctx = context.WithValue(ctx, contextKey{}, buf)
 
 	return ctx, buf.reset
@@ -130,9 +120,9 @@ func (h Handler) WithBuffer(ctx context.Context) (context.Context, func()) {
 
 type (
 	buffer struct {
-		pool    *sync.Pool
-		entries chan entry
-		drained atomic.Bool
+		entries  chan entry
+		overflow []entry
+		drained  atomic.Bool
 	}
 
 	entry struct {
@@ -152,7 +142,11 @@ func (b *buffer) buffer(ctx context.Context, handler slog.Handler, record slog.R
 		case b.entries <- entry{handler: handler, ctx: ctx, record: record}:
 			return nil
 		default:
-			<-b.entries // Drop the oldest log if the buffer is full.
+			// If the buffer is full, then move it to overflow.
+			if len(b.overflow) == cap(b.overflow) {
+				b.overflow = slices.Grow(b.overflow, len(b.entries))
+			}
+			b.overflow = append(b.overflow, <-b.entries)
 		}
 	}
 }
@@ -161,6 +155,13 @@ func (b *buffer) drain() {
 	if drained := b.drained.Swap(true); drained {
 		return
 	}
+
+	for _, e := range b.overflow {
+		// Here ignores the error for best effort.
+		_ = e.handler.Handle(e.ctx, e.record)
+	}
+	clear(b.overflow)
+	b.overflow = b.overflow[:0]
 
 	for {
 		select {
@@ -185,6 +186,16 @@ func (b *buffer) reset() {
 			}
 		}
 	}
+	clear(b.overflow)
+	b.overflow = b.overflow[:0]
 
-	b.pool.Put(b)
+	bufferPool.Put(b)
+}
+
+var bufferPool = sync.Pool{ //nolint:gochecknoglobals
+	New: func() interface{} {
+		return &buffer{
+			entries: make(chan entry, 8), //nolint:gomnd
+		}
+	},
 }
