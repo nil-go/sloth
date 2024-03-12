@@ -15,25 +15,8 @@ func WithLevel(level slog.Level) Option {
 	}
 }
 
-// WithBufferSize provides the size for buffering records when it is activated by Handler.WithBuffer.
-// It buffers records with lower level if it's not sampled,
-// and logs them when there is a record with the minimum level and above.
-//
-// If the buffer size is 0, the handler assumes 10.
-func WithBufferSize(size uint) Option {
-	return func(options *options) {
-		if size > 0 {
-			options.bufferSize = size
-		}
-	}
-}
-
 type (
 	// Option configures the Handler with specific options.
 	Option  func(*options)
-	options struct {
-		Handler
-
-		bufferSize uint
-	}
+	options Handler
 )
