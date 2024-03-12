@@ -9,7 +9,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.0] - 2024-03-11
 
-## Changed
+### Changed
 
 - Decouple WithBuffer from SamplingHandler (#30).
 
