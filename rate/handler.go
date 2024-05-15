@@ -43,7 +43,7 @@ func New(handler slog.Handler, opts ...Option) Handler {
 	option := &options{
 		handler: handler,
 		counts:  &counters{},
-		every:   100, //nolint:gomnd
+		every:   100, //nolint:mnd
 	}
 	for _, opt := range opts {
 		opt(option)
