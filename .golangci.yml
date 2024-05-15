@@ -15,7 +15,8 @@ linters-settings:
   goimports:
     local-prefixes: github.com/nil-go/sloth
   govet:
-    check-shadowing: true
+    enable:
+      - shadow
   inamedparam:
     skip-single-param: true
   makezero:
@@ -34,8 +35,10 @@ linters:
     - asciicheck
     - bidichk
     - bodyclose
+    - canonicalheader
     - containedctx
     - contextcheck
+    # copyloopvar // go 1.22
     - cyclop
     - decorder
     # depguard
@@ -43,14 +46,15 @@ linters:
     - dupl
     - durationcheck
     - dupword
+    - err113
     - errcheck
     - errchkjson
     - errname
     - errorlint
-    - execinquery
     - exportloopref
     - exhaustive
     # exhaustruct
+    - fatcontext
     - forbidigo
     - forcetypeassert
     - funlen
@@ -66,12 +70,10 @@ linters:
     - gocyclo
     - godot
     - godox
-    - goerr113
     - gofmt
     - gofumpt
     - goheader
     - goimports
-    - gomnd
     - gomoddirectives
     - gomodguard
     - goprintffuncname
@@ -84,14 +86,16 @@ linters:
     - inamedparam
     - ineffassign
     - interfacebloat
+    # intrange // go 1.22
     - ireturn
     - lll
-    - loggercheck
+    # loggercheck
     - maintidx
     - makezero
     - mirror
     - misspell
-    - musttag
+    - mnd
+    # musttag
     - nakedret
     - nestif
     - nilerr
@@ -111,7 +115,8 @@ linters:
     - revive
     - rowserrcheck
     - sloglint
-    - sqlclosecheck
+    # spancheck
+    # sqlclosecheck
     - staticcheck
     - stylecheck
     - tagalign
@@ -132,13 +137,13 @@ linters:
     - whitespace
     # wrapcheck
     # wsl
-    - zerologlint
-
+    # zerologlint
 issues:
   exclude-rules:
     - path: _test\.go
       linters:
         - cyclop
+        - err113
         - forcetypeassert
         - funlen
         - gochecknoglobals

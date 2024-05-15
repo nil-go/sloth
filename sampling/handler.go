@@ -195,7 +195,7 @@ func (b *buffer) reset() {
 var bufferPool = sync.Pool{ //nolint:gochecknoglobals
 	New: func() interface{} {
 		return &buffer{
-			entries: make(chan entry, 8), //nolint:gomnd
+			entries: make(chan entry, 8), //nolint:mnd
 		}
 	},
 }

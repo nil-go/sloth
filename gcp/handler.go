@@ -165,7 +165,7 @@ func replaceAttr(project string) func(groups []string, attr slog.Attr) slog.Attr
 				var sampled bool
 				flags, _ := hex.DecodeString(attr.Value.Resolve().String())
 				if len(flags) > 0 {
-					sampled = flags[0]&0x1 == 0x1 //nolint:gomnd
+					sampled = flags[0]&0x1 == 0x1 //nolint:mnd
 				}
 
 				return slog.Bool("logging.googleapis.com/trace_sampled", sampled)
@@ -288,7 +288,7 @@ func (h logHandler) Handle(ctx context.Context, record slog.Record) error { //no
 
 func loadCallers(firstFrame runtime.Frame) []uintptr {
 	var pcs [32]uintptr
-	count := runtime.Callers(2, pcs[:]) //nolint:gomnd // skip [runtime.Callers, this function]
+	count := runtime.Callers(2, pcs[:]) //nolint:mnd // skip [runtime.Callers, this function]
 
 	// Skip frames before the first frame of the record.
 	callers := pcs[:count]
@@ -316,7 +316,7 @@ func loadCallers(firstFrame runtime.Frame) []uintptr {
 
 func stack(message string, callers []uintptr) string {
 	var stackTrace strings.Builder
-	stackTrace.Grow(128 * len(callers)) //nolint:gomnd // It assumes 128 bytes per frame.
+	stackTrace.Grow(128 * len(callers)) //nolint:mnd // It assumes 128 bytes per frame.
 
 	stackTrace.WriteString(message)
 	stackTrace.WriteString("\n\n")
