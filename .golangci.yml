@@ -38,7 +38,7 @@ linters:
     - canonicalheader
     - containedctx
     - contextcheck
-    # copyloopvar // go 1.22
+    - copyloopvar
     - cyclop
     - decorder
     # depguard
@@ -51,7 +51,6 @@ linters:
     - errchkjson
     - errname
     - errorlint
-    - exportloopref
     - exhaustive
     # exhaustruct
     - fatcontext
@@ -82,11 +81,12 @@ linters:
     - gosmopolitan
     - govet
     - grouper
+    - iface
     - importas
     - inamedparam
     - ineffassign
     - interfacebloat
-    # intrange // go 1.22
+    - intrange
     - ireturn
     - lll
     # loggercheck
@@ -112,6 +112,7 @@ linters:
     - promlinter
     - protogetter
     - reassign
+    - recvcheck
     - revive
     - rowserrcheck
     - sloglint
@@ -144,6 +145,7 @@ issues:
       linters:
         - cyclop
         - err113
+        - errcheck
         - forcetypeassert
         - funlen
         - gochecknoglobals
