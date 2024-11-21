@@ -75,8 +75,6 @@ level=DEBUG msg=msg g.pos=after
 	}
 
 	for _, testcase := range testcases {
-		testcase := testcase
-
 		t.Run(testcase.description, func(t *testing.T) {
 			t.Parallel()
 
@@ -127,7 +125,7 @@ func TestHandler_race(t *testing.T) {
 	start := make(chan struct{})
 	var waitGroup sync.WaitGroup
 	waitGroup.Add(procs)
-	for i := 0; i < procs; i++ {
+	for range procs {
 		go func() {
 			defer waitGroup.Done()
 
