@@ -7,6 +7,10 @@ updates:
       - Skip-Changelog
     schedule:
       interval: weekly
+    groups:
+      dependencies:
+        patterns:
+          - *
 
   - package-ecosystem: gomod
     directory: /otel
@@ -15,9 +19,9 @@ updates:
     schedule:
       interval: weekly
     groups:
-      go.opentelemetry.io:
+      dependencies:
         patterns:
-          - go.opentelemetry.io/*
+          - *
 
   - package-ecosystem: github-actions
     directory: /
