@@ -31,7 +31,7 @@ func fnv32a(str string) uint32 {
 		prime32  = 16777619
 	)
 	hash := uint32(offset32)
-	for i := 0; i < len(str); i++ {
+	for i := range len(str) {
 		hash ^= uint32(str[i])
 		hash *= prime32
 	}
