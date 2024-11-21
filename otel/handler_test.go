@@ -48,8 +48,6 @@ func TestHandler(t *testing.T) {
 	t.Parallel()
 
 	for _, testcase := range testcases() {
-		testcase := testcase
-
 		t.Run(testcase.description, func(t *testing.T) {
 			t.Parallel()
 
@@ -181,15 +179,15 @@ level=INFO msg=msg3 g.h.error="an error"
 				events: map[string][]trace.EventOption{
 					"msg1": {
 						trace.WithTimestamp(time.Unix(100, 1000)),
-						trace.WithAttributes(attribute.String("a", "A"), filePath, semconv.CodeLineNumber(73), function),
+						trace.WithAttributes(attribute.String("a", "A"), filePath, semconv.CodeLineNumber(71), function),
 					},
 					"msg2": {
 						trace.WithTimestamp(time.Unix(100, 1000)),
-						trace.WithAttributes(attribute.String("g.b", "B"), filePath, semconv.CodeLineNumber(76), function),
+						trace.WithAttributes(attribute.String("g.b", "B"), filePath, semconv.CodeLineNumber(74), function),
 					},
 					"msg3": {
 						trace.WithTimestamp(time.Unix(100, 1000)),
-						trace.WithAttributes(filePath, semconv.CodeLineNumber(78), function, attribute.String("g.h.error", "an error")),
+						trace.WithAttributes(filePath, semconv.CodeLineNumber(76), function, attribute.String("g.h.error", "an error")),
 					},
 				},
 			},
@@ -210,15 +208,15 @@ level=INFO msg=msg3 g.h.error="an error"
 				errors: map[error][]trace.EventOption{
 					errors.New("msg1"): {
 						trace.WithTimestamp(time.Unix(100, 1000)),
-						trace.WithAttributes(attribute.String("a", "A"), filePath, semconv.CodeLineNumber(73), function),
+						trace.WithAttributes(attribute.String("a", "A"), filePath, semconv.CodeLineNumber(71), function),
 					},
 					errors.New("msg2"): {
 						trace.WithTimestamp(time.Unix(100, 1000)),
-						trace.WithAttributes(attribute.String("g.b", "B"), filePath, semconv.CodeLineNumber(76), function),
+						trace.WithAttributes(attribute.String("g.b", "B"), filePath, semconv.CodeLineNumber(74), function),
 					},
 					fmt.Errorf("msg3: %w", errors.New("an error")): {
 						trace.WithTimestamp(time.Unix(100, 1000)),
-						trace.WithAttributes(filePath, semconv.CodeLineNumber(78), function),
+						trace.WithAttributes(filePath, semconv.CodeLineNumber(76), function),
 					},
 				},
 				status:  codes.Error,
@@ -244,15 +242,15 @@ level=INFO msg=msg3 trace_id=4bf92f3577b34da6a3ce929d0e0e4736 span_id=00f067aa0b
 				events: map[string][]trace.EventOption{
 					"msg1": {
 						trace.WithTimestamp(time.Unix(100, 1000)),
-						trace.WithAttributes(attribute.String("a", "A"), filePath, semconv.CodeLineNumber(73), function),
+						trace.WithAttributes(attribute.String("a", "A"), filePath, semconv.CodeLineNumber(71), function),
 					},
 					"msg2": {
 						trace.WithTimestamp(time.Unix(100, 1000)),
-						trace.WithAttributes(attribute.String("g.b", "B"), filePath, semconv.CodeLineNumber(76), function),
+						trace.WithAttributes(attribute.String("g.b", "B"), filePath, semconv.CodeLineNumber(74), function),
 					},
 					"msg3": {
 						trace.WithTimestamp(time.Unix(100, 1000)),
-						trace.WithAttributes(filePath, semconv.CodeLineNumber(78), function, attribute.String("g.h.error", "an error")),
+						trace.WithAttributes(filePath, semconv.CodeLineNumber(76), function, attribute.String("g.h.error", "an error")),
 					},
 				},
 			},
